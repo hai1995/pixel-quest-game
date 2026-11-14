@@ -52,6 +52,9 @@ export class Game {
     this.autoWatchGold = -1;
     this.autoDialogueTime = 0;
     this.pathCache = null;
+    this.clickPath = null;
+    this.clickGoal = null;
+    this.clickMarker = null;
     this.dt = 0;
     this.dialogue = null;
     this.syncPlayerToSpawn();
@@ -89,6 +92,9 @@ export class Game {
     this.input.reset();
     this.auto = false;
     this.pathCache = null;
+    this.clickPath = null;
+    this.clickGoal = null;
+    this.clickMarker = null;
     this.autoUnreachable.clear();
     this.autoRoamTarget = null;
     this.autoRestocking = false;
@@ -103,7 +109,7 @@ export class Game {
     this.ui.combatLog.innerHTML = '';
     document.getElementById('start-screen').classList.add('hidden');
     this.ui.log('欢迎来到黎明村，勇者！', 'good');
-    this.ui.toast('冒险开始！使用方向键或摇杆移动', 'good');
+    this.ui.toast('冒险开始！点击地图自动前往，或用方向键移动', 'good');
     this.save();
   }
 
@@ -131,6 +137,9 @@ export class Game {
       this.input.reset();
       this.auto = !!save.auto;
       this.pathCache = null;
+      this.clickPath = null;
+      this.clickGoal = null;
+      this.clickMarker = null;
       this.autoUnreachable.clear();
       this.autoRoamTarget = null;
       this.autoRestocking = false;
@@ -207,6 +216,7 @@ export class Game {
 
     if (!this.ui.currentMenu && !this.dialogue) {
       this.updateMovement(dt);
+      this.updateClickMove();
       this.world.update(dt, this);
       this.pickupDrops();
       this.runAuto(dt);
@@ -286,8 +296,7 @@ export class Game {
   updateMovement(dt) {
     let dx = this.input.dirX;
     let dy = this.input.dirY;
-    if (dx !== 0 && dy !== 0 && Math.abs(this.input.vjoy.y) > Math.abs(this.input.vjoy.x)) dx = 0;
-    else if (dx !== 0 && dy !== 0) dy = 0;
+    if (dx !== 0 && dy !== 0) dy = 0;
 
     if (this.player.moving) {
       const p = this.player;
@@ -332,9 +341,99 @@ export class Game {
     }
   }
 
+  clickToMove(clientX, clientY) {
+    if (!this.started || this.player.dead) return false;
+    if (this.ui.currentMenu || this.dialogue) return false;
+    const canvas = this.renderer.canvas;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    const sx = (clientX - rect.left) * (canvas.width / rect.width);
+    const sy = (clientY - rect.top) * (canvas.height / rect.height);
+    const tx = Math.floor(sx / this.renderer.tileSize + this.renderer.cameraX);
+    const ty = Math.floor(sy / this.renderer.tileSize + this.renderer.cameraY);
+    if (tx < 0 || ty < 0 || tx >= this.world.width || ty >= this.world.height) return false;
+    if (tx === this.player.x && ty === this.player.y && !this.player.moving) {
+      this.cancelClickMove();
+      return true;
+    }
+    if (this.auto) this.toggleAuto();
+    this.clickGoal = { x: tx, y: ty };
+    this.clickPath = null;
+    this.clickMarker = { x: tx, y: ty };
+    if (!this.player.moving) this.updateClickMove();
+    return true;
+  }
+
+  findClickPath(tx, ty) {
+    const world = this.world;
+    const startX = this.player.x;
+    const startY = this.player.y;
+    if (tx === startX && ty === startY) return [];
+    const walkable = (x, y) => world.isWalkable(x, y, this.player);
+    const candidates = [];
+    // 目标本身可通行时优先直达；障碍物（树、矿、敌人）则走到相邻格
+    if (walkable(tx, ty)) candidates.push({ x: tx, y: ty });
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const x = tx + dx;
+      const y = ty + dy;
+      if (x < 0 || y < 0 || x >= world.width || y >= world.height) continue;
+      if (walkable(x, y) && !world.getPortalAt(x, y)) candidates.push({ x, y });
+    }
+    candidates.sort((a, b) => Math.hypot(a.x - startX, a.y - startY) - Math.hypot(b.x - startX, b.y - startY));
+    let best = null;
+    for (const target of candidates) {
+      const steps = this.findPath(target.x, target.y);
+      if (!steps.length) continue;
+      if (target.x === tx && target.y === ty) return steps;
+      if (!best || steps.length < best.length) best = steps;
+    }
+    return best;
+  }
+
+  updateClickMove() {
+    if (!this.clickGoal) return;
+    if (this.input.dirX !== 0 || this.input.dirY !== 0) {
+      this.cancelClickMove();
+      return;
+    }
+    if (this.player.moving) return;
+    if (!this.clickPath) {
+      const path = this.findClickPath(this.clickGoal.x, this.clickGoal.y);
+      if (!path || !path.length) {
+        this.cancelClickMove();
+        this.ui.toast('无法前往该地点');
+        return;
+      }
+      this.clickPath = path;
+    }
+    while (this.clickPath.length && this.clickPath[0].x === this.player.x && this.clickPath[0].y === this.player.y) {
+      this.clickPath.shift();
+    }
+    if (!this.clickPath.length) {
+      this.cancelClickMove();
+      return;
+    }
+    const next = this.clickPath[0];
+    const allowPortal = !!this.world.getPortalAt(next.x, next.y);
+    if (!this.autoMove(next.x - this.player.x, next.y - this.player.y, allowPortal)) {
+      this.cancelClickMove();
+      this.ui.toast('前路被挡住了');
+      return;
+    }
+    this.clickPath.shift();
+    if (!this.clickPath.length) this.cancelClickMove();
+  }
+
+  cancelClickMove() {
+    this.clickPath = null;
+    this.clickGoal = null;
+    this.clickMarker = null;
+  }
+
   checkPortal() {
     const portal = this.world.getPortalAt(this.player.x, this.player.y);
     if (!portal || !MAPS[portal.to]) return;
+    this.cancelClickMove();
     this.world.loadMap(portal.to);
     this.player.setTile(portal.toX, portal.toY);
     this.player.mapId = this.world.currentMapId;
@@ -374,6 +473,7 @@ export class Game {
 
   tryAttack() {
     if (this.attackCooldown > 0) return;
+    this.cancelClickMove();
     const target = this.findAdjacentEnemy();
     this.attackCooldown = 0.26;
     this.player.attackAnim = 1;
@@ -385,6 +485,7 @@ export class Game {
 
   toggleAuto() {
     this.auto = !this.auto;
+    this.cancelClickMove();
     if (!this.auto) this.autoRestoreWeapon();
     this.autoStatus = '';
     this.pathCache = null;
@@ -707,7 +808,6 @@ export class Game {
     const startX = this.player.x;
     const startY = this.player.y;
     if (startX === tx && startY === ty) return [];
-    const targetPortal = world.getPortalAt(tx, ty);
     const startKey = `${startX},${startY}`;
     const queue = [[startX, startY]];
     const prev = new Map([[startKey, null]]);
@@ -720,7 +820,8 @@ export class Game {
         const ny = y + dy;
         const key = `${nx},${ny}`;
         if (prev.has(key) || !walkable(nx, ny)) continue;
-        if (!targetPortal && world.getPortalAt(nx, ny)) continue;
+        // 除非目标就是传送门，否则路径绕开传送门，避免中途切换地图
+        if (world.getPortalAt(nx, ny) && !(nx === tx && ny === ty)) continue;
         prev.set(key, [x, y]);
         queue.push([nx, ny]);
       }
@@ -1392,6 +1493,7 @@ export class Game {
     this.player.gold -= lost;
     this.world.loadMap('town');
     this.syncPlayerToSpawn();
+    this.cancelClickMove();
     this.player.dead = false;
     this.player.hp = this.player.maxHp;
     this.player.mp = this.player.maxMp;

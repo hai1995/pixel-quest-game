@@ -23,6 +23,11 @@ fitViewport();
 window.addEventListener('resize', fitViewport);
 window.addEventListener('orientationchange', () => setTimeout(fitViewport, 120));
 
+canvas.addEventListener('pointerdown', event => {
+  if (event.button !== undefined && event.button !== 0) return;
+  game.clickToMove(event.clientX, event.clientY);
+});
+
 ['pointerdown', 'keydown', 'touchstart'].forEach(type => {
   window.addEventListener(type, unlockAudio, { once: true, passive: true });
 });

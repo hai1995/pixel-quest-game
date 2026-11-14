@@ -23,7 +23,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 #app { width: 100%; height: 100dvh; display: flex; min-height: 0; }
 #game-wrap { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; background: #101720; }
-#game { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; }
+#game { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: crosshair; }
 
 #sidebar { width: 288px; flex: 0 0 288px; height: 100%; padding: 20px 18px 14px; overflow-y: auto; background: linear-gradient(180deg, #162231, #0f1823); border-left: 2px solid #2e3d4e; box-shadow: -8px 0 24px rgba(0,0,0,.25); z-index: 5; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 4px 18px; border-bottom: 1px solid #2c3b4d; }
@@ -141,7 +141,7 @@ body.touch-mode .desktop-only, body.touch-mode #sidebar { display: none !importa
 body.touch-mode .mobile-only { display: block !important; }
 body.touch-mode #game-wrap { width: 100%; height: 100dvh; }
 body.touch-mode #mobile-ui { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
-body.touch-mode #mobile-ui button, body.touch-mode #joystick { pointer-events: auto; touch-action: none; }
+body.touch-mode #mobile-ui button { pointer-events: auto; touch-action: none; }
 #mobile-topbar { position: absolute; top: max(7px, env(safe-area-inset-top)); left: 50%; display: flex !important; gap: 5px; transform: translateX(-50%); }
 #mobile-topbar button { width: 39px; height: 36px; padding: 0; color: #ead9aa; background: rgba(15,26,38,.88); border: 1px solid #6b6859; box-shadow: 2px 2px 0 rgba(0,0,0,.3); font-size: 13px; }
 #mobile-topbar button:active { background: #5a5361; transform: translate(1px,1px); }
@@ -152,11 +152,6 @@ body.touch-mode #mobile-hud { display: flex !important; }
 .mh-bars b { display: block; width: 100%; height: 100%; }
 #mh-hp { background: #e25767; }
 #mh-mp { background: #569bd8; }
-#joystick { position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); width: 116px; height: 116px; border: 2px solid rgba(209,216,205,.35); border-radius: 50%; background: rgba(15,26,34,.42); box-shadow: inset 0 0 22px rgba(0,0,0,.25); }
-#joystick::before, #joystick::after { content: ''; position: absolute; background: rgba(211,220,213,.13); }
-#joystick::before { left: 50%; top: 12px; bottom: 12px; width: 1px; }
-#joystick::after { top: 50%; left: 12px; right: 12px; height: 1px; }
-#joystick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px; border: 2px solid rgba(242,223,165,.65); border-radius: 50%; background: rgba(76,91,101,.88); box-shadow: 3px 4px 0 rgba(0,0,0,.25); will-change: transform; }
 #action-buttons { position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 9px; }
 #action-buttons button { color: #f5e7bd; background: rgba(40,52,62,.88); border: 2px solid rgba(214,190,125,.55); box-shadow: 3px 4px 0 rgba(0,0,0,.28); }
 #action-buttons button.active, #action-buttons button:active { transform: translate(2px,2px); background: rgba(111,82,62,.9); box-shadow: 1px 2px 0 rgba(0,0,0,.25); }
@@ -194,8 +189,6 @@ body.touch-mode .start-help { display: flex !important; }
   #mobile-topbar button { width: 36px; height: 34px; font-size: 12px; }
   #mobile-hud { top: calc(max(6px, env(safe-area-inset-top)) + 40px); width: min(286px, 78%); gap: 6px; }
   #mh-map { max-width: 68px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c6b382; }
-  #joystick { left: max(16px, env(safe-area-inset-left)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px); width: 104px; height: 104px; }
-  #joystick-knob { width: 46px; height: 46px; margin: -23px; }
   #action-buttons { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px); gap: 8px; }
   #mobile-attack { width: 74px; height: 74px; font-size: 14px; }
   .utility-actions button { width: 52px; height: 39px; font-size: 10px; }
@@ -219,8 +212,6 @@ body.touch-mode .start-help { display: flex !important; }
   #mobile-topbar { left: auto; right: max(8px, env(safe-area-inset-right)); transform: none; }
   #mobile-topbar button { width: 34px; height: 31px; font-size: 11px; }
   #mobile-hud { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: 210px; transform: none; }
-  #joystick { bottom: max(10px, env(safe-area-inset-bottom)); width: 96px; height: 96px; }
-  #joystick-knob { width: 44px; height: 44px; margin: -22px; }
   #action-buttons { bottom: max(10px, env(safe-area-inset-bottom)); }
   #mobile-attack { width: 65px; height: 65px; }
   .utility-actions button { height: 35px; }
@@ -255,10 +246,6 @@ body.touch-mode .start-help { display: flex !important; }
   from { opacity: 0; transform: translate(-50%, 8px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
-#joystick { transition: background-color .12s ease, border-color .12s ease; }
-#joystick.active { background: rgba(26, 41, 51, .62); border-color: rgba(244, 226, 170, .7); box-shadow: inset 0 0 26px rgba(0,0,0,.3), 0 0 14px rgba(230, 199, 120, .18); }
-#joystick.active #joystick-knob { border-color: #ffe6a3; background: rgba(124, 133, 126, .95); }
-#joystick-knob { transition: box-shadow .12s ease; }
 #mobile-skills button.active { transform: scale(.93); filter: brightness(1.35); }
 #mobile-attack.active { transform: scale(.93); filter: brightness(1.25); }
 .side-nav button.auto-on, #mobile-topbar button.auto-on {

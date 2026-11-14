@@ -6,52 +6,6 @@ export function initMobile(game) {
   if (!isTouch) return { isTouch: false };
 
   document.body.classList.add('touch-mode');
-  const joystick = document.getElementById('joystick');
-  const knob = document.getElementById('joystick-knob');
-  const MAX_R = 46;
-  let joystickPointer = null;
-
-  const updateJoystick = event => {
-    const rect = joystick.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    let dx = event.clientX - cx;
-    let dy = event.clientY - cy;
-    const length = Math.hypot(dx, dy);
-    if (length > MAX_R) {
-      dx = dx / length * MAX_R;
-      dy = dy / length * MAX_R;
-    }
-    game.input.vjoy.x = dx / MAX_R;
-    game.input.vjoy.y = dy / MAX_R;
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
-  };
-
-  const resetJoystick = event => {
-    if (joystickPointer !== null && event.pointerId !== joystickPointer) return;
-    joystickPointer = null;
-    game.input.vjoy.x = 0;
-    game.input.vjoy.y = 0;
-    joystick.classList.remove('active');
-    knob.style.transform = 'translate(0, 0)';
-  };
-
-  joystick.addEventListener('pointerdown', event => {
-    event.preventDefault();
-    joystickPointer = event.pointerId;
-    joystick.setPointerCapture(event.pointerId);
-    joystick.classList.add('active');
-    updateJoystick(event);
-  });
-  joystick.addEventListener('pointermove', event => {
-    if (event.pointerId === joystickPointer) {
-      event.preventDefault();
-      updateJoystick(event);
-    }
-  });
-  joystick.addEventListener('pointerup', resetJoystick);
-  joystick.addEventListener('pointercancel', resetJoystick);
-  joystick.addEventListener('lostpointercapture', resetJoystick);
 
   document.querySelectorAll('#mobile-ui [data-key]').forEach(button => {
     const key = button.dataset.key;

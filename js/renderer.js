@@ -192,6 +192,23 @@ export class Renderer {
       }
     }
 
+    if (game.clickMarker) {
+      const x = this.screenX(game.clickMarker.x);
+      const y = this.screenY(game.clickMarker.y);
+      const pulse = 0.55 + Math.sin(game.time * 7) * 0.25;
+      ctx.save();
+      ctx.strokeStyle = `rgba(246,222,160,${pulse})`;
+      ctx.lineWidth = Math.max(2, tileSize * 0.055);
+      ctx.beginPath();
+      ctx.arc(x + tileSize / 2, y + tileSize / 2, tileSize * 0.3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(246,222,160,${pulse * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(x + tileSize / 2, y + tileSize / 2, Math.max(2, tileSize * 0.07), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     ctx.restore();
 
     this.drawOffscreenMarkers(game);

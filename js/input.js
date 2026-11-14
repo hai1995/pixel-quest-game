@@ -15,7 +15,6 @@ export class Input {
     this.keys = new Set();
     this.pressed = new Set();
     this.released = new Set();
-    this.vjoy = { x: 0, y: 0 };
 
     window.addEventListener('keydown', event => {
       const key = normalizeKey(event.key);
@@ -45,22 +44,16 @@ export class Input {
     this.keys.clear();
     this.pressed.clear();
     this.released.clear();
-    this.vjoy.x = 0;
-    this.vjoy.y = 0;
   }
 
   get dirX() {
-    const keyboard = (this.keys.has('d') || this.keys.has('arrowright') ? 1 : 0)
+    return (this.keys.has('d') || this.keys.has('arrowright') ? 1 : 0)
       - (this.keys.has('a') || this.keys.has('arrowleft') ? 1 : 0);
-    if (keyboard) return keyboard;
-    return Math.abs(this.vjoy.x) > 0.35 ? Math.sign(this.vjoy.x) : 0;
   }
 
   get dirY() {
-    const keyboard = (this.keys.has('s') || this.keys.has('arrowdown') ? 1 : 0)
+    return (this.keys.has('s') || this.keys.has('arrowdown') ? 1 : 0)
       - (this.keys.has('w') || this.keys.has('arrowup') ? 1 : 0);
-    if (keyboard) return keyboard;
-    return Math.abs(this.vjoy.y) > 0.35 ? Math.sign(this.vjoy.y) : 0;
   }
 
   endFrame() {
