@@ -31,6 +31,8 @@ export class Game {
     this.deathTimer = 0;
     this.hitStop = 0;
     this.fade = 0;
+    this.auto = false;
+    this.autoPotionCooldown = 0;
     this.dt = 0;
     this.dialogue = null;
     this.syncPlayerToSpawn();
@@ -66,6 +68,8 @@ export class Game {
     this.fade = 0.4;
     this.renderer.snapCamera();
     this.input.reset();
+    this.auto = false;
+    this.syncAutoUI();
     this.ui.closeMenu();
     this.ui.hideDialogue();
     this.ui.combatLog.innerHTML = '';
@@ -97,6 +101,8 @@ export class Game {
       this.fade = 0.4;
       this.renderer.snapCamera();
       this.input.reset();
+      this.auto = !!save.auto;
+      this.syncAutoUI();
       this.ui.closeMenu();
       this.ui.hideDialogue();
       document.getElementById('start-screen').classList.add('hidden');
@@ -113,7 +119,7 @@ export class Game {
   save() {
     if (!this.started || this.player.dead) return;
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, player: this.player.toSave(), quests: this.quests.toSave(), savedAt: Date.now() }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, auto: this.auto, player: this.player.toSave(), quests: this.quests.toSave(), savedAt: Date.now() }));
     } catch (error) {
       console.warn('Unable to save game:', error);
     }
@@ -137,6 +143,7 @@ export class Game {
     this.player.shieldTime = Math.max(0, this.player.shieldTime - dt);
     this.player.attackAnim = Math.max(0, (this.player.attackAnim || 0) - dt * 7);
     this.bumpCooldown = Math.max(0, (this.bumpCooldown || 0) - dt);
+    this.autoPotionCooldown = Math.max(0, this.autoPotionCooldown - dt);
     this.fade = Math.max(0, this.fade - dt);
     Object.keys(this.player.skillCooldowns).forEach(id => {
       this.player.skillCooldowns[id] = Math.max(0, this.player.skillCooldowns[id] - dt);
@@ -155,6 +162,7 @@ export class Game {
       this.updateMovement(dt);
       this.world.update(dt, this);
       this.pickupDrops();
+      this.runAuto();
       this.player.restoreMp(dt * 0.7);
       if (this.world.map.safe) this.player.heal(dt * 1.2);
     }
@@ -187,6 +195,7 @@ export class Game {
     for (const [key, menu] of Object.entries(menuKeys)) {
       if (pressed.has(key)) this.toggleMenu(menu);
     }
+    if (pressed.has('t')) this.toggleAuto();
     if (this.ui.currentMenu || this.player.dead) return;
 
     if (this.dialogue) {
@@ -296,6 +305,123 @@ export class Game {
     if (!target) return;
     this.addEffect({ type: 'slash', x: target.px, y: target.py, color: '#fff0ad', duration: 0.22 });
     playerAttack(this, target);
+  }
+
+  toggleAuto() {
+    this.auto = !this.auto;
+    this.syncAutoUI();
+    sfx.menu();
+    this.ui.toast(this.auto ? '自动动作已开启：自动战斗、采集与喝药' : '自动动作已关闭', this.auto ? 'good' : '');
+    this.save();
+  }
+
+  syncAutoUI() {
+    document.querySelectorAll('[data-auto]').forEach(button => {
+      button.classList.toggle('auto-on', this.auto);
+      button.setAttribute('aria-pressed', String(this.auto));
+    });
+  }
+
+  healOptions() {
+    return Object.keys(this.player.inventory)
+      .filter(id => ITEMS[id]?.type === 'consumable' && ITEMS[id].heal > 0)
+      .sort((a, b) => ITEMS[a].heal - ITEMS[b].heal);
+  }
+
+  canUseHealSkill() {
+    return this.player.hasActiveSkill('heal')
+      && this.player.mp >= ACTIVE_SKILLS.heal.mp
+      && (this.player.skillCooldowns.heal || 0) <= 0;
+  }
+
+  runAuto() {
+    if (!this.auto || this.player.dead) return;
+    const adjacent = this.findAdjacentEnemy();
+    if (adjacent) {
+      this.faceTarget(adjacent);
+      if (this.attackCooldown <= 0) this.tryAttack();
+    } else {
+      const enemy = this.findNearestEnemy(5);
+      if (enemy) {
+        const lowHp = this.player.hp / this.player.maxHp < 0.22;
+        const noHeal = !this.healOptions().length && !this.canUseHealSkill();
+        if (lowHp && noHeal) this.autoStepAway(enemy);
+        else this.autoStepToward(enemy);
+      }
+    }
+    this.tryAutoHeal();
+    if (!adjacent) this.tryAutoGather();
+  }
+
+  tryAutoHeal() {
+    const p = this.player;
+    if (this.autoPotionCooldown > 0 || p.hp / p.maxHp >= 0.35) return false;
+    if (this.canUseHealSkill() && this.useActiveSkill('heal')) {
+      this.autoPotionCooldown = 1;
+      return true;
+    }
+    const options = this.healOptions();
+    if (!options.length) return false;
+    const deficit = p.maxHp - p.hp;
+    const pick = options.find(id => ITEMS[id].heal >= deficit * 0.8) || options[options.length - 1];
+    if (!p.useItem(pick)) return false;
+    sfx.heal();
+    this.ui.log(`自动使用${ITEMS[pick].name}`, 'good');
+    this.autoPotionCooldown = 1.2;
+    return true;
+  }
+
+  tryAutoGather() {
+    if (this.world.map.safe || this.gatherCooldown > 0 || this.player.moving) return;
+    const weapon = ITEMS[this.player.equipment.weapon];
+    const target = this.gatherTargets().find(pos => {
+      const props = TILE_PROPS[pos.tile];
+      if (!props) return false;
+      if (props.chest) return true;
+      if (props.chop) return weapon?.tool === 'axe';
+      if (props.mine) return weapon?.tool === 'pick';
+      if (props.fish) return weapon?.tool === 'rod';
+      return false;
+    });
+    if (!target) return;
+    this.faceTarget(target);
+    this.gather(target);
+  }
+
+  autoStepToward(enemy) {
+    if (this.player.moving || this.input.dirX !== 0 || this.input.dirY !== 0) return;
+    const dx = Math.sign(enemy.x - this.player.x);
+    const dy = Math.sign(enemy.y - this.player.y);
+    if (!dx && !dy) return;
+    const horizontalFirst = Math.abs(enemy.x - this.player.x) >= Math.abs(enemy.y - this.player.y);
+    const moves = horizontalFirst ? [[dx, 0], [0, dy]] : [[0, dy], [dx, 0]];
+    for (const [mx, my] of moves) {
+      if ((mx || my) && this.autoMove(mx, my)) return;
+    }
+  }
+
+  autoStepAway(enemy) {
+    if (this.player.moving || this.input.dirX !== 0 || this.input.dirY !== 0) return;
+    const dx = -Math.sign(enemy.x - this.player.x);
+    const dy = -Math.sign(enemy.y - this.player.y);
+    const moves = [[dx, 0], [0, dy], [dx || 1, 0], [0, dy || 1]];
+    for (const [mx, my] of moves) {
+      if ((mx || my) && this.autoMove(mx, my)) return;
+    }
+  }
+
+  autoMove(mx, my) {
+    const nx = this.player.x + mx;
+    const ny = this.player.y + my;
+    if (!this.world.isWalkable(nx, ny, this.player)) return false;
+    this.player.dir = mx !== 0 ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');
+    this.player.targetX = nx;
+    this.player.targetY = ny;
+    this.player.targetPx = nx;
+    this.player.targetPy = ny;
+    this.player.moving = true;
+    this.player.animFrame++;
+    return true;
   }
 
   useActiveSkill(id) {
@@ -442,9 +568,9 @@ export class Game {
     }).map(pos => ({ ...pos, tile: this.world.getTile(pos.x, pos.y) }));
   }
 
-  gather() {
+  gather(targetPos = null) {
     if (this.gatherCooldown > 0 || this.player.moving) return;
-    const target = this.gatherTargets().find(pos => {
+    const target = targetPos || this.gatherTargets().find(pos => {
       const props = TILE_PROPS[pos.tile];
       return props?.chop || props?.mine || props?.fish || props?.chest;
     });

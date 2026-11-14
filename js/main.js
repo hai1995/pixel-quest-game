@@ -30,6 +30,11 @@ try {
 }
 continueButton.addEventListener('click', () => game.continueGame());
 
+document.querySelectorAll('[data-auto]').forEach(button => {
+  button.addEventListener('click', () => game.toggleAuto());
+});
+game.syncAutoUI();
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) game.save();
 });

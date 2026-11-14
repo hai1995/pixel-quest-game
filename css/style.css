@@ -243,6 +243,20 @@ body.touch-mode .start-help { display: flex !important; }
 #joystick-knob { transition: box-shadow .12s ease; }
 #mobile-skills button.active { transform: scale(.93); filter: brightness(1.35); }
 #mobile-attack.active { transform: scale(.93); filter: brightness(1.25); }
+.side-nav button.auto-on, #mobile-topbar button.auto-on {
+  color: #21180a;
+  background: #e6c46c;
+  border-color: #ffe6a3;
+  box-shadow: 0 0 12px rgba(230, 196, 108, .45);
+  animation: auto-pulse 1.8s ease-in-out infinite;
+}
+.side-nav button.auto-on span, .side-nav button.auto-on kbd { color: #3a2b0d; }
+.side-nav button.auto-on kbd { border-color: rgba(58, 43, 13, .4); background: rgba(58, 43, 13, .12); }
+@keyframes auto-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(230, 196, 108, .28); }
+  50% { box-shadow: 0 0 16px rgba(230, 196, 108, .6); }
+}
 @media (prefers-reduced-motion: reduce) {
   #menu-overlay:not(.hidden) #menu-window, #dialogue-box:not(.hidden) { animation: none; }
+  .side-nav button.auto-on, #mobile-topbar button.auto-on { animation: none; }
 }
