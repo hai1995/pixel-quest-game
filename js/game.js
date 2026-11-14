@@ -63,7 +63,7 @@ export class Game {
   newGame() {
     this.player = new Player();
     this.quests = new QuestSystem(this.player);
-    this.world.loadMap('town');
+    this.world.reset('town');
     this.syncPlayerToSpawn();
     this.effects = [];
     this.dialogue = null;
@@ -76,6 +76,13 @@ export class Game {
     this.renderer.snapCamera();
     this.input.reset();
     this.auto = false;
+    this.pathCache = null;
+    this.autoUnreachable.clear();
+    this.autoWeaponBeforeTool = null;
+    this.autoPotionCooldown = 0;
+    this.autoManaCooldown = 0;
+    this.autoShopCooldown = 0;
+    this.deathTimer = 0;
     this.syncAutoUI();
     this.ui.closeMenu();
     this.ui.hideDialogue();
@@ -109,6 +116,13 @@ export class Game {
       this.renderer.snapCamera();
       this.input.reset();
       this.auto = !!save.auto;
+      this.pathCache = null;
+      this.autoUnreachable.clear();
+      this.autoWeaponBeforeTool = null;
+      this.autoPotionCooldown = 0;
+      this.autoManaCooldown = 0;
+      this.autoShopCooldown = 0;
+      this.deathTimer = 0;
       this.syncAutoUI();
       this.ui.closeMenu();
       this.ui.hideDialogue();
@@ -810,7 +824,10 @@ export class Game {
       .filter(id => ITEMS[id]?.tool === tool && p.countItem(id) > 0)
       .sort((a, b) => (ITEMS[b].atk || 0) - (ITEMS[a].atk || 0));
     if (!candidates.length) return false;
-    if (this.autoWeaponBeforeTool === null) this.autoWeaponBeforeTool = p.equipment.weapon || null;
+    const current = p.equipment.weapon;
+    if (this.autoWeaponBeforeTool === null && current && !ITEMS[current]?.tool) {
+      this.autoWeaponBeforeTool = current;
+    }
     if (!p.equip(candidates[0])) return false;
     this.setAutoStatus('换装');
     this.ui.log(`切换工具：${ITEMS[candidates[0]].name}`, 'good');
@@ -818,15 +835,14 @@ export class Game {
   }
 
   autoRestoreWeapon() {
-    const previous = this.autoWeaponBeforeTool;
-    if (!previous) return false;
     const p = this.player;
     if (!ITEMS[p.equipment.weapon]?.tool) {
       this.autoWeaponBeforeTool = null;
       return false;
     }
+    const previous = this.autoWeaponBeforeTool;
     this.autoWeaponBeforeTool = null;
-    if (p.countItem(previous) > 0 && p.equip(previous)) {
+    if (previous && p.countItem(previous) > 0 && p.equip(previous)) {
       this.ui.log(`换回${ITEMS[previous].name}`, 'good');
       return true;
     }
@@ -1106,7 +1122,7 @@ export class Game {
     }
     const chest = this.gatherTargets().find(pos => TILE_PROPS[pos.tile]?.chest);
     if (chest) {
-      this.gather();
+      this.gather(chest);
       return;
     }
     this.ui.toast('附近没有可交互的对象');
@@ -1137,10 +1153,15 @@ export class Game {
         return;
       }
       if (this.quests.isComplete(npc.quest)) {
+        const levelBefore = this.player.level;
         const reward = this.quests.turnIn(npc.quest);
+        const rewardItems = Object.entries(reward.items || {})
+          .map(([id, qty]) => `${ITEMS[id].name}×${qty}`)
+          .join('、');
         this.dialogue.stage = 1;
-        this.ui.showDialogue(npc.name, `做得好！这是你的奖励：${reward.gold || 0} 金币、${reward.xp || 0} 经验。`);
+        this.ui.showDialogue(npc.name, `做得好！这是你的奖励：${reward.gold || 0} 金币、${reward.xp || 0} 经验${rewardItems ? `、${rewardItems}` : ''}。`);
         this.ui.toast(`完成任务：${quest.name}`, 'good');
+        if (this.player.level > levelBefore) this.onLevelUp(this.player.level - levelBefore);
         this.save();
         return;
       }

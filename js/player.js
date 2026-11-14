@@ -208,7 +208,7 @@ export class Player {
     this.level = Math.max(1, save.level || 1);
     this.xp = Math.max(0, save.xp || 0);
     this.gold = Math.max(0, save.gold || 0);
-    this.inventory = { ...deepClone(STARTER_ITEMS), ...(save.inventory || {}) };
+    this.inventory = save.inventory ? deepClone(save.inventory) : deepClone(STARTER_ITEMS);
     this.equipment = { ...deepClone(STARTER_EQUIP), ...(save.equipment || {}) };
     Object.keys(SKILL_DEFS).forEach(id => {
       this.skills[id] = {

@@ -105,8 +105,20 @@ export class Enemy {
       const moves = horizontalFirst
         ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
         : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+      let moved = false;
       for (const [mx, my] of moves) {
-        if ((mx || my) && this.tryMove(mx, my, world, player)) break;
+        if ((mx || my) && this.tryMove(mx, my, world, player)) {
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) {
+        const options = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+          .sort((a, b) => Math.abs(this.x + a[0] - player.x) + Math.abs(this.y + a[1] - player.y)
+            - (Math.abs(this.x + b[0] - player.x) + Math.abs(this.y + b[1] - player.y)));
+        for (const [mx, my] of options) {
+          if (this.tryMove(mx, my, world, player)) break;
+        }
       }
       return;
     }

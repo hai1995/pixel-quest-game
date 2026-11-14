@@ -11,14 +11,26 @@ export class World {
     this.enemies = [];
     this.itemDrops = [];
     this.resourceRespawns = [];
+    this.tileStates = new Map();
+    this.respawnQueues = new Map();
     this.loadMap('town');
+  }
+
+  reset(mapId = 'town') {
+    this.tileStates.clear();
+    this.respawnQueues.clear();
+    this.itemDrops = [];
+    this.loadMap(mapId);
   }
 
   loadMap(id) {
     const map = MAPS[id] || MAPS.town;
     this.currentMapId = MAPS[id] ? id : 'town';
     this.map = map;
-    this.tiles = map.rows;
+    if (!this.tileStates.has(this.currentMapId)) {
+      this.tileStates.set(this.currentMapId, map.rows.map(row => row.slice()));
+    }
+    this.tiles = this.tileStates.get(this.currentMapId);
     this.width = Math.max(...this.tiles.map(row => row.length));
     this.height = this.tiles.length;
     this.spawnX = map.spawn.x;
@@ -29,7 +41,8 @@ export class World {
       .map(([id, npc]) => ({ ...npc, id }));
     this.enemies = [];
     this.itemDrops = [];
-    this.resourceRespawns = [];
+    if (!this.respawnQueues.has(this.currentMapId)) this.respawnQueues.set(this.currentMapId, []);
+    this.resourceRespawns = this.respawnQueues.get(this.currentMapId);
     this.spawnEnemies();
   }
 
@@ -121,8 +134,17 @@ export class World {
     for (const drop of this.itemDrops) drop.age += dt;
     for (const resource of this.resourceRespawns) {
       resource.time -= dt;
-      if (resource.time <= 0 && !this.getEnemyAt(resource.x, resource.y)) this.setTile(resource.x, resource.y, resource.tile);
+      if (resource.time > 0) continue;
+      const blocked = this.getEnemyAt(resource.x, resource.y)
+        || (game.player.x === resource.x && game.player.y === resource.y);
+      if (blocked) {
+        resource.time = 1.2;
+        continue;
+      }
+      this.setTile(resource.x, resource.y, resource.tile);
+      resource.done = true;
     }
-    this.resourceRespawns = this.resourceRespawns.filter(resource => resource.time > 0);
+    this.resourceRespawns = this.resourceRespawns.filter(resource => !resource.done);
+    this.respawnQueues.set(this.currentMapId, this.resourceRespawns);
   }
 }
