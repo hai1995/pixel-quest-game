@@ -62,6 +62,7 @@ export const ITEMS = {
   wood_sword:    { name: '木剑', icon: '🗡️', type: 'weapon', atk: 5,  price: 50,  desc: '简陋的木剑', slot: 'weapon' },
   copper_sword:  { name: '铜剑', icon: '🗡️', type: 'weapon', atk: 12, price: 150, desc: '锋利的铜剑', slot: 'weapon' },
   iron_sword:    { name: '铁剑', icon: '⚔️', type: 'weapon', atk: 22, price: 400, desc: '坚固的铁剑', slot: 'weapon' },
+  steel_sword:   { name: '钢剑', icon: '⚔️', type: 'weapon', atk: 30, price: 700, desc: '精钢锻造的利剑', slot: 'weapon' },
   gold_sword:    { name: '黄金剑', icon: '⚔️', type: 'weapon', atk: 38, price: 1000, desc: '闪耀的黄金剑', slot: 'weapon' },
   dragon_sword:  { name: '屠龙剑', icon: '🗡️', type: 'weapon', atk: 70, price: 5000, desc: '传说中的屠龙剑', slot: 'weapon', rare: true },
 
@@ -75,6 +76,7 @@ export const ITEMS = {
   cloth_armor:   { name: '布甲', icon: '🥋', type: 'armor', def: 3,  price: 60,  desc: '轻便的布甲', slot: 'armor' },
   leather_armor: { name: '皮甲', icon: '🦺', type: 'armor', def: 8,  price: 180, desc: '结实的皮甲', slot: 'armor' },
   iron_armor:    { name: '铁甲', icon: '🛡️', type: 'armor', def: 16, price: 500, desc: '坚固的铁甲', slot: 'armor' },
+  steel_armor:   { name: '钢甲', icon: '🛡️', type: 'armor', def: 22, price: 800, desc: '精钢打造的护甲', slot: 'armor' },
   gold_armor:    { name: '金甲', icon: '🛡️', type: 'armor', def: 28, price: 1200,desc: '华丽的金甲', slot: 'armor' },
   dragon_armor:  { name: '龙鳞甲', icon: '🛡️', type: 'armor', def: 50, price: 6000,desc: '传说级护甲', slot: 'armor', rare: true },
 
@@ -98,6 +100,9 @@ export const RECIPES = [
   { id: 'iron_pick', out: 'iron_pick', outQty: 1, mats: { iron_ore: 2, wood: 2 }, name: '铁镐', skill: 'smithing', lv: 10 },
   { id: 'leather_armor', out: 'leather_armor', outQty: 1, mats: { wolf_pelt: 3 }, name: '皮甲', skill: 'smithing', lv: 8 },
   { id: 'iron_armor', out: 'iron_armor', outQty: 1, mats: { iron_ore: 5 }, name: '铁甲', skill: 'smithing', lv: 20 },
+  { id: 'steel_sword', out: 'steel_sword', outQty: 1, mats: { iron_ore: 4, wood: 2 }, name: '钢剑', skill: 'smithing', lv: 22 },
+  { id: 'steel_armor', out: 'steel_armor', outQty: 1, mats: { iron_ore: 6, wolf_pelt: 2 }, name: '钢甲', skill: 'smithing', lv: 25 },
+  { id: 'dragon_armor', out: 'dragon_armor', outQty: 1, mats: { dragon_scale: 2, gold_ore: 4, iron_ore: 2 }, name: '龙鳞甲', skill: 'smithing', lv: 30 },
   { id: 'copper_ring', out: 'copper_ring', outQty: 1, mats: { copper_ore: 2 }, name: '铜戒指', skill: 'smithing', lv: 12 },
   { id: 'hp_potion', out: 'hp_potion', outQty: 1, mats: { slime_gel: 2 }, name: '生命药水', skill: 'alchemy', lv: 3 },
   { id: 'mp_potion', out: 'mp_potion', outQty: 1, mats: { bat_wing: 2 }, name: '法力药水', skill: 'alchemy', lv: 5 },
@@ -214,7 +219,7 @@ export const MAPS = {
     rows: parseMap([
       'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
       'T..T....T.....T...T.....T......T..T....T',
-      'T.......T..T..T...T..T....T.TT....T....T',
+      'T.......T..C..T...T..T....T.TT....T....T',
       'T..T.b......T.T..bb...T...T....T.T.....T',
       'T....T.T....T...T...T.T...T....T.T.....T',
       'T..T...T....T.T...T...T...T.T...T......T',
@@ -241,7 +246,7 @@ export const MAPS = {
     rows: parseMap([
       'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
       'W..WW....W..1...W...22..W....W..1.....W',
-      'W..W..o..W..W...W...W...W.oo.W..W..2..W',
+      'W..W..C..W..W...W...W...W.oo.W..W..2..W',
       'W..W.....W..W.ooW.ooW.ooW.....W..W.....W',
       'W..WWWWW.W..W.WWW.WWW.W.WWWWW.W..WWWWW.W',
       'W........W..............W......W.......P',
@@ -266,7 +271,7 @@ export const MAPS = {
     rows: parseMap([
       'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
       'WFFFFFFFFFWFFFFFFFFFWFFFFFFFFFWFFFFFFFFW',
-      'WFFFFFFFFFWFFFFFFFFFWFFFFFFFFFWFFFFFFFFW',
+      'WFFFFFFFFFWFCFFFFFFFWFFFFFFFFFWFFFFFFFFW',
       'WFF3333FFFWFFFFFFFFFWFFFFFFFFFWFF3333FFW',
       'WFF3333FFFWFFFFFFFFFWFFFFFFFFFWFF3333FFW',
       'WFFFFFFFFFWFFFFFFFFFWFFFFFFFFFWFFFFFFFFW',
@@ -292,7 +297,7 @@ export const MAPS = {
       'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
       'T.....................................*T',
       'T..sss......TTT......sss.....TTT.......T',
-      'T.ss~~~ss...T...T...ss~~~ss..T...T..ss.T',
+      'T.ss~~~ss.C.T...T...ss~~~ss..T...T..ss.T',
       'Ts~~~~~~sss.....Ts~~~~~~~ss......Tss~~.T',
       'Ts~~~~~~~~~ss..Ts~~~~~~~~~ss...Tss~~~..T',
       'Tss~~~~~~sss...ss~~~~~~~sss...ss~~~~~..T',
@@ -320,6 +325,9 @@ export const NPCS = {
   miner: { name: '矿工', icon: '⛏️', map: 'town', x: 5, y: 16, quest: 'q_ore', dialog: '我需要一些铜矿来修理工具，能帮我采3个吗？' },
   fisher: { name: '渔夫', icon: '🎣', map: 'beach', x: 20, y: 10, quest: 'q_fish', dialog: '今天运气不好，能帮我钓3条鱼吗？' },
   sage: { name: '智者', icon: '🧙‍♂️', map: 'town', x: 12, y: 5, dialog: '传说在龙之巢穴深处沉睡着一条巨龙...只有最强的勇者才能击败它。', quest: 'q_dragon' },
+  apprentice: { name: '铁匠学徒', icon: '🧑‍🏭', map: 'town', x: 28, y: 4, quest: 'q_iron', dialog: '师父的铁矿快用完了，能帮我采4块铁矿吗？洞穴深处就有。' },
+  guard: { name: '卫兵', icon: '💂', map: 'town', x: 33, y: 13, quest: 'q_skeleton', dialog: '洞穴里的骷髅兵越来越多，能帮我消灭6只吗？' },
+  cook: { name: '厨师', icon: '👨‍🍳', map: 'town', x: 18, y: 6, quest: 'q_feast', dialog: '我想做一桌海鲜大餐，能帮我钓4条鱼吗？' },
 };
 
 // 任务定义
@@ -329,6 +337,9 @@ export const QUESTS = {
   q_ore: { name: '铜矿采集', desc: '采集3个铜矿', type: 'gather', target: 'copper_ore', qty: 3, reward: { gold: 80, xp: 150, items: { wood_pick: 1 } } },
   q_fish: { name: '帮助渔夫', desc: '钓3条鱼', type: 'gather', target: 'fish', qty: 3, reward: { gold: 60, xp: 120, items: { fishing_rod: 1 } } },
   q_dragon: { name: '屠龙勇士', desc: '击败巨龙', type: 'kill', target: 'dragon', qty: 1, reward: { gold: 1000, xp: 2000, items: { dragon_sword: 1 } } },
+  q_iron: { name: '铁匠的委托', desc: '采集4个铁矿', type: 'gather', target: 'iron_ore', qty: 4, reward: { gold: 250, xp: 450, items: { iron_pick: 1 } } },
+  q_skeleton: { name: '洞穴清剿', desc: '击败6只骷髅兵', type: 'kill', target: 'skeleton', qty: 6, reward: { gold: 300, xp: 550, items: { copper_ring: 1 } } },
+  q_feast: { name: '海鲜大餐', desc: '为厨师钓4条鱼', type: 'gather', target: 'fish', qty: 4, reward: { gold: 120, xp: 220, items: { cooked_fish: 3 } } },
 };
 
 // 商店物品
@@ -337,6 +348,7 @@ export const SHOP_ITEMS = [
   'wood_sword', 'wood_axe', 'wood_pick', 'fishing_rod',
   'cloth_armor', 'copper_sword', 'copper_ring', 'leather_armor',
   'iron_sword', 'iron_armor', 'amulet', 'gold_sword', 'gold_armor', 'gold_ring',
+  'steel_sword', 'steel_armor',
 ];
 
 // 初始装备

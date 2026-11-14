@@ -1841,11 +1841,18 @@ export class Game {
     }
 
     if (props.chest) {
-      const gold = 25 + Math.floor(Math.random() * 50);
+      const mapId = this.world.currentMapId;
+      const tier = { beach: 1, forest: 1, cave: 2, dungeon: 3 }[mapId] || 1;
+      const gold = rand(20 + tier * 25, 50 + tier * 60);
+      const loot = [['hp_potion', 1]];
+      if (tier >= 2) loot.push(['iron_ore', tier >= 3 ? 2 : 1]);
+      if (tier >= 3) loot.push(['gold_ore', 1]);
       this.player.gold += gold;
-      this.player.addItem('hp_potion', 1);
-      this.world.setTile(target.x, target.y, this.world.currentMapId === 'town' ? TILE.GRASS : TILE.FLOOR);
-      this.ui.toast(`打开宝箱：${gold} 金币和生命药水`, 'good');
+      loot.forEach(([id, qty]) => this.player.addItem(id, qty));
+      const restore = { beach: TILE.SAND, cave: TILE.FLOOR, dungeon: TILE.FLOOR }[mapId] || TILE.GRASS;
+      this.world.setTile(target.x, target.y, restore);
+      const names = loot.map(([id, qty]) => `${ITEMS[id].name}×${qty}`).join('、');
+      this.ui.toast(`打开宝箱：${gold} 金币、${names}`, 'good');
     } else {
       this.player.addItem(itemId, 1);
       const levels = this.player.gainSkillXp(skillId, xp);
