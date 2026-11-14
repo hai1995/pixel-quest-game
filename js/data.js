@@ -168,6 +168,16 @@ function parseMap(rows) {
   return map;
 }
 
+// 自动行动模式
+export const AUTO_MODES = {
+  all:    { name: '全自动', icon: '✦', desc: '战斗、采集、任务、补给、换图' },
+  combat: { name: '战斗',   icon: '⚔', desc: '专注寻怪战斗，不做采集' },
+  chop:   { name: '砍树',   icon: '🪓', desc: '寻找树木砍伐木材' },
+  mine:   { name: '挖矿',   icon: '⛏', desc: '前往矿洞开采矿石' },
+  fish:   { name: '钓鱼',   icon: '🎣', desc: '前往水域钓鱼' },
+  gather: { name: '全采集', icon: '🌿', desc: '依次采集木材、矿石与鱼' },
+};
+
 export const MAPS = {
   town: {
     name: '黎明村',

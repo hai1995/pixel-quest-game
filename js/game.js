@@ -1,4 +1,4 @@
-import { ACTIVE_SKILLS, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
+import { ACTIVE_SKILLS, AUTO_MODES, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
 import { Input } from './input.js';
 import { Player } from './player.js';
 import { World } from './world.js';
@@ -37,6 +37,7 @@ export class Game {
     this.hitStop = 0;
     this.fade = 0;
     this.auto = false;
+    this.autoMode = 'all';
     this.autoStatus = '';
     this.autoPotionCooldown = 0;
     this.autoManaCooldown = 0;
@@ -99,6 +100,7 @@ export class Game {
     this.input.reset();
     this.clearHover();
     this.auto = false;
+    this.autoMode = 'all';
     this.pathCache = null;
     this.cancelClickMove();
     this.autoUnreachable.clear();
@@ -143,6 +145,7 @@ export class Game {
       this.input.reset();
       this.clearHover();
       this.auto = !!save.auto;
+      this.autoMode = AUTO_MODES[save.autoMode] ? save.autoMode : 'all';
       this.pathCache = null;
       this.cancelClickMove();
       this.autoUnreachable.clear();
@@ -170,7 +173,7 @@ export class Game {
   save() {
     if (!this.started || this.player.dead) return;
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, auto: this.auto, player: this.player.toSave(), quests: this.quests.toSave(), savedAt: Date.now() }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, auto: this.auto, autoMode: this.autoMode, player: this.player.toSave(), quests: this.quests.toSave(), savedAt: Date.now() }));
     } catch (error) {
       console.warn('Unable to save game:', error);
     }
@@ -620,6 +623,28 @@ export class Game {
     this.auto = !this.auto;
     this.cancelClickMove();
     if (!this.auto) this.autoRestoreWeapon();
+    this.resetAutoState();
+    this.syncAutoUI();
+    sfx.menu();
+    const meta = AUTO_MODES[this.autoMode];
+    this.ui.toast(this.auto ? `自动行动已开启：${meta.name} · ${meta.desc}` : '自动行动已关闭', this.auto ? 'good' : '');
+    this.save();
+  }
+
+  setAutoMode(mode) {
+    if (!AUTO_MODES[mode]) return;
+    this.autoMode = mode;
+    this.auto = true;
+    this.cancelClickMove();
+    this.resetAutoState();
+    this.syncAutoUI();
+    sfx.menu();
+    const meta = AUTO_MODES[mode];
+    this.ui.toast(`自动行动：${meta.name} · ${meta.desc}`, 'good');
+    this.save();
+  }
+
+  resetAutoState() {
     this.autoStatus = '';
     this.pathCache = null;
     this.autoUnreachable.clear();
@@ -630,17 +655,19 @@ export class Game {
     this.autoWatchKey = '';
     this.autoWatchGold = -1;
     this.autoDialogueTime = 0;
-    this.syncAutoUI();
-    sfx.menu();
-    this.ui.toast(this.auto ? '自动动作已开启：战斗、采集、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
-    this.save();
   }
 
   syncAutoUI() {
     if (!this.auto) this.autoStatus = '';
+    const label = this.auto ? `自动：${AUTO_MODES[this.autoMode]?.name || '全自动'}` : '自动动作';
     document.querySelectorAll('[data-auto]').forEach(button => {
       button.classList.toggle('auto-on', this.auto);
       button.setAttribute('aria-pressed', String(this.auto));
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    });
+    document.querySelectorAll('[data-auto-mode]').forEach(button => {
+      button.classList.toggle('active', this.auto && button.dataset.autoMode === this.autoMode);
     });
   }
 
@@ -677,13 +704,13 @@ export class Game {
       return;
     }
     if (this.tryAutoRecover()) return;
-    if (this.autoShouldTurnIn(ratio)) {
+    if (this.autoMode === 'all' && this.autoShouldTurnIn(ratio)) {
       this.setAutoStatus('交任务');
       this.autoRetreat();
       return;
     }
     if (this.autoRestockTrip(ratio)) return;
-    if (this.autoAdvanceMap(ratio)) return;
+    if ((this.autoMode === 'all' || this.autoMode === 'combat') && this.autoAdvanceMap(ratio)) return;
     if (this.tryAutoKite(ratio)) return;
     const adjacent = this.findAdjacentEnemy();
     if (adjacent) {
@@ -699,11 +726,16 @@ export class Game {
       if (this.attackCooldown <= 0) this.tryAttack();
       return;
     }
-    if (this.tryAutoGather()) {
-      this.setAutoStatus('采集');
-      return;
+    if (this.autoMode !== 'combat') {
+      const items = this.autoMode === 'all' ? null : this.autoGatherItems();
+      if (this.tryAutoGather(items)) {
+        this.setAutoStatus(this.autoMode === 'all' ? '采集' : this.autoGatherLabel());
+        return;
+      }
+      if (this.autoSeekGather()) return;
+      if (this.autoMode !== 'all' && this.autoTravelForGather(this.autoGatherItems())) return;
+      if (this.autoMode !== 'all') this.setAutoStatus('升级中');
     }
-    if (this.autoSeekGather()) return;
     const target = this.pickAutoTarget();
     if (target) {
       const distance = Math.hypot(target.px - p.px, target.py - p.py);
@@ -1017,12 +1049,12 @@ export class Game {
   }
 
   autoAdvanceMap(ratio) {
-    if (this.autoRestocking || this.pendingTurnIn()) return false;
+    if (this.autoRestocking || (this.autoMode === 'all' && this.pendingTurnIn())) return false;
     if (ratio < 0.7 || this.findAdjacentEnemy()) return false;
     const currentId = this.world.currentMapId;
     const currentMax = this.mapMaxEnemyLevel(currentId);
     if (!currentMax || this.player.level < currentMax + 3) return false;
-    if (this.killQuestBlocksAdvance(currentId)) return false;
+    if (this.autoMode === 'all' && this.killQuestBlocksAdvance(currentId)) return false;
     const portal = this.world.portals.find(item => {
       const next = MAPS[item.to];
       if (!next || next.safe) return false;
@@ -1044,15 +1076,17 @@ export class Game {
   autoSafeTasks() {
     this.autoRestoreWeapon();
     if (this.player.hp / this.player.maxHp < 0.75) return false;
-    const questNpc = this.autoQuestTarget();
-    if (questNpc) {
-      if (distCheb(this.player, questNpc) <= 1) {
-        this.setAutoStatus('任务');
-        return this.autoAdvanceQuest(questNpc);
+    if (this.autoMode === 'all') {
+      const questNpc = this.autoQuestTarget();
+      if (questNpc) {
+        if (distCheb(this.player, questNpc) <= 1) {
+          this.setAutoStatus('任务');
+          return this.autoAdvanceQuest(questNpc);
+        }
+        const moving = this.autoApproach(questNpc.x, questNpc.y);
+        if (moving) this.setAutoStatus('任务');
+        return moving;
       }
-      const moving = this.autoApproach(questNpc.x, questNpc.y);
-      if (moving) this.setAutoStatus('任务');
-      return moving;
     }
     const needsShop = this.autoNeedsSupplies() || this.autoNeedsTool() || this.autoNeedsFishingRod()
       || this.autoNeedsEquipment() || this.autoJunkItems().length;
@@ -1070,7 +1104,14 @@ export class Game {
         return moving;
       }
     }
-    if (this.autoGatherNeeds().has('fish')
+    if (this.autoMode === 'fish' || this.autoMode === 'gather') {
+      const items = this.autoGatherItems();
+      if (this.tryAutoGather(items) || this.autoSeekGather()) {
+        this.setAutoStatus(this.autoGatherLabel());
+        return true;
+      }
+    }
+    if (this.autoMode === 'all' && this.autoGatherNeeds().has('fish')
       && (this.tryAutoGather() || this.autoSeekGather())) {
       this.setAutoStatus('钓鱼');
       return true;
@@ -1200,10 +1241,30 @@ export class Game {
     return needs;
   }
 
+  autoGatherItems() {
+    switch (this.autoMode) {
+      case 'chop': return ['wood'];
+      case 'mine': return ['copper_ore', 'iron_ore', 'gold_ore', 'stone'];
+      case 'fish': return ['fish'];
+      case 'gather': return ['wood', 'copper_ore', 'iron_ore', 'gold_ore', 'stone', 'fish'];
+      case 'combat': return [];
+      default: return [...this.autoGatherNeeds()];
+    }
+  }
+
+  autoGatherLabel() {
+    return { chop: '砍树', mine: '挖矿', fish: '钓鱼', gather: '采集' }[this.autoMode] || '采集';
+  }
+
+  autoGatherToolReady(itemId) {
+    const tool = GATHER_TOOLS[itemId];
+    return !tool || this.ownsTool(tool);
+  }
+
   autoNeededToolItem() {
     const p = this.player;
     const tools = new Set();
-    for (const itemId of this.autoGatherNeeds()) {
+    for (const itemId of this.autoGatherItems()) {
       if (GATHER_TOOLS[itemId]) tools.add(GATHER_TOOLS[itemId]);
     }
     for (const tool of tools) {
@@ -1222,6 +1283,9 @@ export class Game {
   }
 
   autoNeedsFishingRod() {
+    if (this.autoMode === 'fish' || this.autoMode === 'gather') {
+      return !this.ownsTool('rod') && this.player.gold >= ITEMS.fishing_rod.price;
+    }
     if (this.quests.states.q_fish?.status === 'turnedIn') return false;
     if (this.ownsTool('rod')) return false;
     return this.player.gold >= ITEMS.fishing_rod.price;
@@ -1235,6 +1299,7 @@ export class Game {
   }
 
   autoShouldVisitBeach() {
+    if (this.autoMode !== 'all') return false;
     if (this.world.currentMapId !== 'town') return false;
     if (this.quests.states.q_fish?.status === 'turnedIn') return false;
     return this.ownsTool('rod');
@@ -1281,6 +1346,9 @@ export class Game {
       if (this.canUseHealSkill()) this.useActiveSkill('heal');
       else this.drinkHealPotion();
       return;
+    }
+    if (this.autoMode !== 'all' && this.autoMode !== 'combat') {
+      if (this.autoTravelForGather(this.autoGatherItems())) return;
     }
     const portal = this.world.portals.find(item => MAPS[item.to] && !MAPS[item.to].safe)
       || this.world.portals.find(item => item.to === 'town' && item.to !== this.world.currentMapId);
@@ -1350,12 +1418,13 @@ export class Game {
     return true;
   }
 
-  tryAutoGather() {
+  tryAutoGather(items = null) {
     if (this.gatherCooldown > 0 || this.player.moving) return false;
     for (const pos of this.gatherTargets()) {
       const props = TILE_PROPS[pos.tile];
       if (!props) continue;
       if (this.world.map.safe && !props.fish) continue;
+      if (items && !props.chest && !items.some(itemId => this.gatherTileMatches(pos.tile, itemId))) continue;
       if (props.chest) {
         this.faceTarget(pos);
         this.gather(pos);
@@ -1371,10 +1440,10 @@ export class Game {
   }
 
   autoSeekGather() {
-    if (this.threatCount(2) > 0) return false;
+    if (this.autoMode === 'all' && this.threatCount(2) > 0) return false;
     const node = this.pickGatherNode();
     if (!node) return false;
-    this.setAutoStatus('采集');
+    this.setAutoStatus(this.autoGatherLabel());
     const p = this.player;
     if (p.x === node.standX && p.y === node.standY) return this.gatherCooldown > 0;
     return this.autoPathStep(node.standX, node.standY);
@@ -1390,7 +1459,7 @@ export class Game {
   }
 
   pickGatherNode() {
-    const needList = [...this.autoGatherNeeds()];
+    const needList = this.autoGatherItems();
     if (!needList.length) return null;
     const p = this.player;
     const dist = new Map([[`${p.x},${p.y}`, 0]]);
@@ -1412,7 +1481,10 @@ export class Game {
     for (let y = 0; y < this.world.height; y++) {
       for (let x = 0; x < this.world.width; x++) {
         const tile = this.world.getTile(x, y);
-        if (!needList.some(itemId => this.gatherTileMatches(tile, itemId))) continue;
+        const tileProps = TILE_PROPS[tile];
+        if (!tileProps) continue;
+        if (this.world.map.safe && !tileProps.fish) continue;
+        if (!needList.some(itemId => this.gatherTileMatches(tile, itemId) && this.autoGatherToolReady(itemId))) continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const standX = x + dx;
           const standY = y + dy;
@@ -1423,6 +1495,53 @@ export class Game {
       }
     }
     return best;
+  }
+
+  mapHasGatherTarget(mapId, items) {
+    const map = MAPS[mapId];
+    if (!map) return false;
+    for (const row of map.rows) {
+      for (const tile of row) {
+        if (items.some(itemId => this.gatherTileMatches(tile, itemId))) return true;
+      }
+    }
+    return false;
+  }
+
+  mapLevelAllowed(mapId) {
+    const map = MAPS[mapId];
+    if (!map || map.safe) return true;
+    const max = this.mapMaxEnemyLevel(mapId);
+    return !max || this.player.level >= max - 4;
+  }
+
+  autoTravelForGather(items) {
+    const ready = items.filter(itemId => this.autoGatherToolReady(itemId));
+    if (!ready.length) return false;
+    const start = this.world.currentMapId;
+    const prev = new Map([[start, null]]);
+    const queue = [start];
+    let goal = null;
+    for (let head = 0; head < queue.length && !goal; head++) {
+      const mapId = queue[head];
+      for (const portal of MAPS[mapId]?.portals || []) {
+        const to = portal.to;
+        if (prev.has(to) || !this.mapLevelAllowed(to)) continue;
+        prev.set(to, { map: mapId, portal });
+        if (this.mapHasGatherTarget(to, ready)) {
+          goal = to;
+          break;
+        }
+        queue.push(to);
+      }
+    }
+    if (!goal) return false;
+    let step = prev.get(goal);
+    while (step && step.map !== start) step = prev.get(step.map);
+    if (!step || step.map !== start) return false;
+    const moving = this.autoPathStep(step.portal.x, step.portal.y);
+    if (moving) this.setAutoStatus('前往采集点');
+    return moving;
   }
 
   autoUseTool(tool) {

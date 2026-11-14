@@ -265,3 +265,51 @@ body.touch-mode .start-help { display: flex !important; }
   #menu-overlay:not(.hidden) #menu-window, #dialogue-box:not(.hidden) { animation: none; }
   .side-nav button.auto-on, #mobile-topbar button.auto-on { animation: none; }
 }
+
+/* 自动行动选择菜单 */
+#auto-menu {
+  position: fixed;
+  z-index: 70;
+  width: 238px;
+  padding: 10px;
+  color: #d8e2ee;
+  background: rgba(13, 19, 27, .98);
+  border: 2px solid #3b4b5f;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .5);
+}
+#auto-menu.hidden { display: none; }
+#auto-menu header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+#auto-menu header strong { color: #f6dea0; font-size: 13px; letter-spacing: .12em; }
+#auto-menu header small { color: #8ea0b5; font-size: 10px; }
+#auto-mode-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#auto-mode-list button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  color: #d8e2ee;
+  background: #1a2430;
+  border: 1px solid #33414f;
+  cursor: pointer;
+}
+#auto-mode-list button:hover { border-color: #f6dea0; color: #fff; }
+#auto-mode-list button.active { background: #2c3a24; border-color: #9fd06a; color: #eaf7d8; }
+#auto-mode-list button i { font-style: normal; font-size: 13px; }
+#auto-stop {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #e8b4b4;
+  background: #2a1a1c;
+  border: 1px solid #5a3438;
+  cursor: pointer;
+}
+#auto-stop:hover { border-color: #e0556b; color: #ffd7dc; }
+@media (max-width: 720px) {
+  #auto-menu { width: min(238px, calc(100vw - 20px)); }
+}
