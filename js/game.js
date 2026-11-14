@@ -6,7 +6,7 @@ import { Renderer } from './renderer.js';
 import { QuestSystem } from './quests.js';
 import { UI } from './ui.js';
 import { fireball, playerAttack, powerStrike, whirlwind } from './combat.js';
-import { distCheb } from './utils.js';
+import { choice, distCheb, rand } from './utils.js';
 import { sfx } from './audio.js';
 
 const SAVE_KEY = 'pixel-quest-save';
@@ -38,6 +38,7 @@ export class Game {
     this.autoShopCooldown = 0;
     this.autoRepathCooldown = 0;
     this.autoUnreachable = new Map();
+    this.autoRoamTarget = null;
     this.autoWeaponBeforeTool = null;
     this.pathCache = null;
     this.dt = 0;
@@ -78,6 +79,7 @@ export class Game {
     this.auto = false;
     this.pathCache = null;
     this.autoUnreachable.clear();
+    this.autoRoamTarget = null;
     this.autoWeaponBeforeTool = null;
     this.autoPotionCooldown = 0;
     this.autoManaCooldown = 0;
@@ -118,6 +120,7 @@ export class Game {
       this.auto = !!save.auto;
       this.pathCache = null;
       this.autoUnreachable.clear();
+      this.autoRoamTarget = null;
       this.autoWeaponBeforeTool = null;
       this.autoPotionCooldown = 0;
       this.autoManaCooldown = 0;
@@ -291,6 +294,7 @@ export class Game {
     this.effects = [];
     this.pathCache = null;
     this.autoUnreachable.clear();
+    this.autoRoamTarget = null;
     this.fade = 0.38;
     this.renderer.snapCamera();
     sfx.portal();
@@ -338,6 +342,7 @@ export class Game {
     this.autoStatus = '';
     this.pathCache = null;
     this.autoUnreachable.clear();
+    this.autoRoamTarget = null;
     this.syncAutoUI();
     sfx.menu();
     this.ui.toast(this.auto ? '自动动作已开启：战斗、拾取、任务与补给' : '自动动作已关闭', this.auto ? 'good' : '');
@@ -420,7 +425,7 @@ export class Game {
       this.setAutoStatus('采集');
       return;
     }
-    this.setAutoStatus('游荡');
+    this.setAutoStatus('寻怪');
     this.autoRoam();
   }
 
@@ -475,21 +480,67 @@ export class Game {
 
   autoRoam() {
     if (this.player.moving || this.autoRepathCooldown > 0) return;
-    const canFightDanger = this.player.hp / this.player.maxHp > 0.75;
+    const p = this.player;
+    const canFightDanger = p.hp / p.maxHp > 0.75;
     const enemies = this.world.enemies
       .filter(enemy => !enemy.dead && (canFightDanger || !this.enemyDanger(enemy)))
-      .sort((a, b) => Math.hypot(a.px - this.player.px, a.py - this.player.py)
-        - Math.hypot(b.px - this.player.px, b.py - this.player.py));
-    for (const enemy of enemies.slice(0, 3)) {
-      if (this.autoStepToward(enemy)) return;
+      .sort((a, b) => Math.hypot(a.px - p.px, a.py - p.py)
+        - Math.hypot(b.px - p.px, b.py - p.py));
+    // 主动寻怪：挨个尝试全图可反击的怪物，能走通就追过去
+    for (const enemy of enemies) {
+      if (this.autoStepToward(enemy)) {
+        this.autoRoamTarget = null;
+        this.setAutoStatus('寻怪');
+        return;
+      }
     }
-    const centerX = Math.floor(this.world.width / 2);
-    const centerY = Math.floor(this.world.height / 2);
-    if (Math.hypot(centerX - this.player.x, centerY - this.player.y) > 3 && this.autoPathStep(centerX, centerY)) return;
-    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => Math.random() - 0.5);
-    for (const [mx, my] of dirs) {
-      if (this.autoMove(mx, my)) return;
+    // 全图暂时没有可追击的怪物时，去远处尚未探索过的位置找怪，而不是在原地打转
+    this.setAutoStatus('探索');
+    this.autoExplore();
+  }
+
+  exploreKey(pos) {
+    return `tile:${this.world.currentMapId}:${pos.x},${pos.y}`;
+  }
+
+  autoExplore() {
+    const p = this.player;
+    if (this.autoRoamTarget) {
+      if (distCheb(p, this.autoRoamTarget) <= 1) {
+        this.autoRoamTarget = null;
+      } else if (this.autoPathStep(this.autoRoamTarget.x, this.autoRoamTarget.y)) {
+        return;
+      } else {
+        this.autoUnreachable.set(this.exploreKey(this.autoRoamTarget), this.time + 6);
+        this.autoRoamTarget = null;
+      }
     }
+    const target = this.pickExploreTarget();
+    if (!target) return;
+    this.autoRoamTarget = target;
+    if (!this.autoPathStep(target.x, target.y)) {
+      this.autoUnreachable.set(this.exploreKey(target), this.time + 6);
+      this.autoRoamTarget = null;
+    }
+  }
+
+  pickExploreTarget() {
+    const p = this.player;
+    const options = [];
+    for (let i = 0; i < 60; i++) {
+      const x = rand(1, this.world.width - 2);
+      const y = rand(1, this.world.height - 2);
+      if (!this.world.isWalkable(x, y, p)) continue;
+      if (this.world.getPortalAt(x, y) || this.world.getEnemyAt(x, y)) continue;
+      if (this.time < (this.autoUnreachable.get(this.exploreKey({ x, y })) || 0)) continue;
+      const distance = distCheb(p, { x, y });
+      if (distance < 6) continue;
+      options.push({ x, y, distance });
+    }
+    if (!options.length) return null;
+    options.sort((a, b) => b.distance - a.distance);
+    // 优先去更远的地方，但保留随机性，避免反复走同一条路线
+    return choice(options.slice(0, Math.max(1, Math.ceil(options.length / 3))));
   }
 
   autoCanHealSoon() {
@@ -1023,6 +1074,7 @@ export class Game {
     this.fade = 0.45;
     this.pathCache = null;
     this.autoUnreachable.clear();
+    this.autoRoamTarget = null;
     this.renderer.snapCamera();
     this.ui.closeMenu();
     this.closeDialogue();

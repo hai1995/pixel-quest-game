@@ -13,6 +13,7 @@ export class World {
     this.resourceRespawns = [];
     this.tileStates = new Map();
     this.respawnQueues = new Map();
+    this.enemyRespawnTimer = 0;
     this.loadMap('town');
   }
 
@@ -44,25 +45,87 @@ export class World {
     if (!this.respawnQueues.has(this.currentMapId)) this.respawnQueues.set(this.currentMapId, []);
     this.resourceRespawns = this.respawnQueues.get(this.currentMapId);
     this.spawnEnemies();
+    this.enemyRespawnTimer = 1.5;
+  }
+
+  enemyTargetCount() {
+    return this.currentMapId === 'dungeon' ? 9 : 13;
+  }
+
+  reachableTiles(from) {
+    if (!from) return null;
+    const seen = new Set([`${from.x},${from.y}`]);
+    const queue = [[from.x, from.y]];
+    let head = 0;
+    while (head < queue.length) {
+      const [x, y] = queue[head++];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = `${nx},${ny}`;
+        if (seen.has(key) || !TILE_PROPS[this.getTile(nx, ny)]?.walk) continue;
+        seen.add(key);
+        queue.push([nx, ny]);
+      }
+    }
+    return seen;
+  }
+
+  spawnNormalEnemy(avoid = null, reachable = null, minDistance = 8) {
+    const types = (this.map.enemies || []).filter(type => type !== 'dragon');
+    if (!types.length) return false;
+    if (reachable) {
+      const pool = [];
+      for (const key of reachable) {
+        const [x, y] = key.split(',').map(Number);
+        if (avoid && distCheb({ x, y }, avoid) < minDistance) continue;
+        if (this.getEnemyAt(x, y) || this.getPortalAt(x, y)) continue;
+        if (this.npcs.some(npc => npc.x === x && npc.y === y)) continue;
+        pool.push({ x, y });
+      }
+      if (!pool.length) return false;
+      const pos = choice(pool);
+      this.enemies.push(new Enemy(choice(types), pos.x, pos.y));
+      return true;
+    }
+    for (let attempts = 0; attempts < 300; attempts++) {
+      const x = rand(1, this.width - 2);
+      const y = rand(1, this.height - 2);
+      if (!this.isWalkable(x, y)) continue;
+      if (this.getPortalAt(x, y)) continue;
+      if (this.npcs.some(npc => npc.x === x && npc.y === y)) continue;
+      if (avoid && distCheb({ x, y }, avoid) < minDistance) continue;
+      this.enemies.push(new Enemy(choice(types), x, y));
+      return true;
+    }
+    return false;
   }
 
   spawnEnemies() {
-    const types = this.map.enemies || [];
-    if (!types.length || this.map.safe) return;
-    const normalTypes = types.filter(type => type !== 'dragon');
-    const targetCount = this.currentMapId === 'dungeon' ? 9 : 13;
+    if (!(this.map.enemies || []).length || this.map.safe) return;
+    const spawn = { x: this.spawnX, y: this.spawnY };
+    const reachable = this.reachableTiles(spawn);
     let attempts = 0;
-    while (this.enemies.length < targetCount && attempts++ < 500) {
-      const x = rand(1, this.width - 2);
-      const y = rand(1, this.height - 2);
-      if (!this.isWalkable(x, y) || this.getEnemyAt(x, y) || this.getPortalAt(x, y)) continue;
-      if (distCheb({ x, y }, { x: this.spawnX, y: this.spawnY }) < 5) continue;
-      if (this.npcs.some(npc => npc.x === x && npc.y === y)) continue;
-      this.enemies.push(new Enemy(choice(normalTypes), x, y));
+    while (this.enemies.length < this.enemyTargetCount() && attempts++ < 200) {
+      const before = this.enemies.length;
+      this.spawnNormalEnemy(spawn, reachable, 5);
+      if (this.enemies.length === before) break;
     }
     if (this.map.boss && this.isWalkable(this.map.boss.x, this.map.boss.y)) {
       this.enemies.push(new Enemy(this.map.boss.id, this.map.boss.x, this.map.boss.y));
     }
+  }
+
+  updateEnemyRespawn(dt, game) {
+    if (this.map.safe || !(this.map.enemies || []).length) return;
+    this.enemyRespawnTimer -= dt;
+    if (this.enemyRespawnTimer > 0) return;
+    this.enemyRespawnTimer = 2.2;
+    const aliveNormals = this.enemies.filter(enemy => !enemy.dead && !enemy.boss).length;
+    if (aliveNormals >= this.enemyTargetCount()) return;
+    const player = game?.player;
+    if (!player || player.dead) return;
+    this.spawnNormalEnemy(player, this.reachableTiles(player));
   }
 
   getTile(x, y) {
@@ -131,6 +194,7 @@ export class World {
   update(dt, game) {
     for (const enemy of this.enemies) enemy.update(dt, this, game.player, game);
     this.enemies = this.enemies.filter(enemy => !enemy.dead);
+    this.updateEnemyRespawn(dt, game);
     for (const drop of this.itemDrops) drop.age += dt;
     for (const resource of this.resourceRespawns) {
       resource.time -= dt;
