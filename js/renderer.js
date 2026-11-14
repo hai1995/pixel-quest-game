@@ -180,14 +180,20 @@ export class Renderer {
           ctx.fillText('!', x + tileSize / 2, y - tileSize * 0.06);
           ctx.restore();
         }
-        if (entity.hp < entity.maxHp || entity.boss) {
+        if (entity.hp < entity.maxHp || entity.boss || entity.elite) {
           const width = tileSize * (entity.boss ? 1.25 : 0.85);
           const barX = x + (tileSize - width) / 2;
           const barY = y - tileSize * 0.16;
           ctx.fillStyle = 'rgba(0,0,0,.75)';
           ctx.fillRect(barX - 1, barY - 1, width + 2, 6);
-          ctx.fillStyle = entity.boss ? '#d74a52' : '#e76666';
+          ctx.fillStyle = entity.boss ? '#d74a52' : entity.elite ? '#f2c14e' : '#e76666';
           ctx.fillRect(barX, barY, width * entity.hp / entity.maxHp, 4);
+        }
+        if (entity.elite && Math.hypot(entity.px - game.player.px, entity.py - game.player.py) < 7) {
+          ctx.font = `bold ${Math.max(10, Math.round(tileSize * 0.21))}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ffd873';
+          ctx.fillText(entity.name, x + tileSize / 2, y - tileSize * 0.26);
         }
       } else {
         const lunge = (entity.attackAnim || 0) * tileSize * 0.18;
@@ -324,7 +330,7 @@ export class Renderer {
       ctx.translate(x, y);
       ctx.rotate(angle);
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = enemy.boss ? '#ffb14a' : '#e86565';
+      ctx.fillStyle = enemy.boss ? '#ffb14a' : enemy.elite ? '#ffd873' : '#e86565';
       ctx.beginPath();
       ctx.moveTo(10, 0);
       ctx.lineTo(-7, 6.5);

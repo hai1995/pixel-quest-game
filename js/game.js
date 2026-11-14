@@ -1059,7 +1059,7 @@ export class Game {
       return this.autoRetreat();
     }
     if (this.autoRestockCooldown > 0) return false;
-    if (ratio < 0.65 || this.findNearestEnemy(4) || (!this.autoNeedsEquipment() && !this.autoNeedsTool())) return false;
+    if (ratio < 0.65 || this.findNearestEnemy(4) || (!this.autoNeedsGear() && !this.autoNeedsTool())) return false;
     if (this.world.currentMapId === 'dungeon') return false;
     this.autoRestocking = true;
     this.autoRestockCooldown = 120;
@@ -1235,6 +1235,11 @@ export class Game {
 
   autoNeedsEquipment() {
     return this.equipmentUpgrades().length > 0;
+  }
+
+  // 只有武器/护甲升级才值得中断战斗长途回城，饰品留到回城补给时再买
+  autoNeedsGear() {
+    return this.equipmentUpgrades().some(id => ['weapon', 'armor'].includes(ITEMS[id]?.slot));
   }
 
   autoBuyEquipment() {
@@ -1842,14 +1847,15 @@ export class Game {
 
     if (props.chest) {
       const mapId = this.world.currentMapId;
-      const tier = { beach: 1, forest: 1, cave: 2, dungeon: 3 }[mapId] || 1;
+      const tier = { beach: 1, forest: 1, cave: 2, dungeon: 3, volcano: 4 }[mapId] || 1;
       const gold = rand(20 + tier * 25, 50 + tier * 60);
       const loot = [['hp_potion', 1]];
       if (tier >= 2) loot.push(['iron_ore', tier >= 3 ? 2 : 1]);
       if (tier >= 3) loot.push(['gold_ore', 1]);
+      if (tier >= 4) loot.push(['fire_core', 1]);
       this.player.gold += gold;
       loot.forEach(([id, qty]) => this.player.addItem(id, qty));
-      const restore = { beach: TILE.SAND, cave: TILE.FLOOR, dungeon: TILE.FLOOR }[mapId] || TILE.GRASS;
+      const restore = { beach: TILE.SAND, cave: TILE.FLOOR, dungeon: TILE.FLOOR, volcano: TILE.FLOOR }[mapId] || TILE.GRASS;
       this.world.setTile(target.x, target.y, restore);
       const names = loot.map(([id, qty]) => `${ITEMS[id].name}×${qty}`).join('、');
       this.ui.toast(`打开宝箱：${gold} 金币、${names}`, 'good');
@@ -1861,7 +1867,7 @@ export class Game {
       this.ui.log(`获得 ${ITEMS[itemId].name} × 1`, 'good');
       if (levels) this.ui.toast(`${skillId === 'woodcut' ? '伐木' : skillId === 'mining' ? '采矿' : '钓鱼'}技能升级！`, 'good');
       if (!props.fish) {
-        const replacement = ['cave', 'dungeon'].includes(this.world.currentMapId) ? TILE.FLOOR : TILE.GRASS;
+        const replacement = ['cave', 'dungeon', 'volcano'].includes(this.world.currentMapId) ? TILE.FLOOR : TILE.GRASS;
         this.world.setTile(target.x, target.y, replacement);
         this.world.scheduleTileRespawn(target.x, target.y, target.tile);
       }

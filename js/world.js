@@ -49,7 +49,9 @@ export class World {
   }
 
   enemyTargetCount() {
-    return this.currentMapId === 'dungeon' ? 9 : 13;
+    if (this.currentMapId === 'dungeon') return 9;
+    if (this.currentMapId === 'volcano') return 11;
+    return 13;
   }
 
   reachableTiles(from) {
@@ -85,7 +87,7 @@ export class World {
       }
       if (!pool.length) return false;
       const pos = choice(pool);
-      this.enemies.push(new Enemy(choice(types), pos.x, pos.y));
+      this.enemies.push(new Enemy(choice(types), pos.x, pos.y, Math.random() < 0.12));
       return true;
     }
     for (let attempts = 0; attempts < 300; attempts++) {
@@ -95,7 +97,7 @@ export class World {
       if (this.getPortalAt(x, y)) continue;
       if (this.npcs.some(npc => npc.x === x && npc.y === y)) continue;
       if (avoid && distCheb({ x, y }, avoid) < minDistance) continue;
-      this.enemies.push(new Enemy(choice(types), x, y));
+      this.enemies.push(new Enemy(choice(types), x, y, Math.random() < 0.12));
       return true;
     }
     return false;

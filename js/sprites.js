@@ -28,6 +28,11 @@ export function drawTile(ctx, id, x, y, size, tileX = 0, tileY = 0, time = 0) {
     const wave = Math.floor(time * 2 + tileX + tileY) % 3;
     rect(ctx, '#65a8e0', x + (2 + wave * 3) * u, y + 4 * u, 5 * u, u);
     rect(ctx, '#285fa8', x + (9 - wave * 2) * u, y + 11 * u, 5 * u, u);
+  } else if (id === TILE.LAVA) {
+    const wave = Math.floor(time * 2 + tileX * 0.7 + tileY) % 3;
+    rect(ctx, '#7a1f12', x + (2 + wave * 3) * u, y + 4 * u, 6 * u, 2 * u);
+    rect(ctx, '#f07a2a', x + (8 - wave * 2) * u, y + 9 * u, 5 * u, 2 * u);
+    rect(ctx, '#ffd35c', x + (4 + wave * 4) * u, y + 12 * u, 2 * u, u);
   } else if (id === TILE.TREE || id === TILE.BUSH) {
     if (id === TILE.TREE) rect(ctx, '#6d4827', x + 7 * u, y + 10 * u, 3 * u, 6 * u);
     const baseY = id === TILE.TREE ? 2 : 6;
@@ -134,6 +139,13 @@ export function drawEnemy(ctx, enemy, x, y, size) {
       rect(ctx, '#772b29', x + u, y + 2 * u, 3 * u, 9 * u);
       rect(ctx, '#772b29', x + 12 * u, y + 2 * u, 3 * u, 9 * u);
     }
+  }
+  if (enemy.elite) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,206,90,.8)';
+    ctx.lineWidth = Math.max(1, u);
+    ctx.strokeRect(x + 2 * u, y + u, 12 * u, 14 * u);
+    ctx.restore();
   }
 }
 

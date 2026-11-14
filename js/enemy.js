@@ -2,19 +2,28 @@ import { ENEMIES } from './data.js';
 import { choice, distCheb, rand, randf, uuid } from './utils.js';
 
 export class Enemy {
-  constructor(type, x, y) {
+  constructor(type, x, y, elite = false) {
     this.id = uuid();
     this.type = type;
     this.defData = ENEMIES[type];
     this.name = this.defData.name;
     this.isEnemy = true;
     this.boss = !!this.defData.boss;
+    this.elite = !!elite && !this.boss;
     this.level = this.defData.lvl;
     this.maxHp = this.defData.hp;
-    this.hp = this.maxHp;
     this.atk = this.defData.atk;
     this.def = this.defData.def;
     this.xp = this.defData.xp;
+    if (this.elite) {
+      this.name = `精英·${this.defData.name}`;
+      this.level += 2;
+      this.maxHp = Math.round(this.maxHp * 1.9);
+      this.atk = Math.round(this.atk * 1.35);
+      this.def = Math.round(this.def * 1.3);
+      this.xp = Math.round(this.xp * 2.2);
+    }
+    this.hp = this.maxHp;
     this.x = x;
     this.y = y;
     this.px = x;
@@ -148,8 +157,16 @@ export class Enemy {
   dropLoot() {
     const items = [];
     for (const drop of this.defData.drops) {
-      if (Math.random() <= drop.chance) items.push({ id: drop.id, qty: drop.qty || 1 });
+      if (Math.random() <= drop.chance) {
+        items.push({ id: drop.id, qty: (drop.qty || 1) + (this.elite ? 1 : 0) });
+      }
     }
-    return { gold: rand(this.defData.gold[0], this.defData.gold[1]), items };
+    let gold = rand(this.defData.gold[0], this.defData.gold[1]);
+    if (this.elite) {
+      gold *= 2;
+      const extra = choice(this.defData.drops);
+      if (extra) items.push({ id: extra.id, qty: 1 });
+    }
+    return { gold, items };
   }
 }

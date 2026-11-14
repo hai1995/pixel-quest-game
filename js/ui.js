@@ -170,7 +170,11 @@ export class UI {
   }
 
   renderMap() {
-    const body = Object.entries(MAPS).map(([id, map]) => `<article class="map-card ${id === this.game.world.currentMapId ? 'current' : ''}"><div class="map-symbol">${id === 'town' ? '村' : id === 'forest' ? '林' : id === 'cave' ? '洞' : id === 'dungeon' ? '龙' : '海'}</div><div><h3>${map.name}</h3><p>${map.safe ? '安全区域，可以休整和交易' : id === 'dungeon' ? '高危区域，巨龙沉睡于此' : '危险区域，注意敌人与资源'}</p></div>${id === this.game.world.currentMapId ? '<b>当前位置</b>' : ''}</article>`).join('');
+    const body = Object.entries(MAPS).map(([id, map]) => {
+      const symbol = { town: '村', forest: '林', cave: '洞', dungeon: '龙', volcano: '熔', beach: '海' }[id] || '?';
+      const desc = map.safe ? '安全区域，可以休整和交易' : id === 'dungeon' ? '高危区域，巨龙沉睡于此' : id === 'volcano' ? '终局区域，火焰元素与亚龙盘踞' : '危险区域，注意敌人与资源';
+      return `<article class="map-card ${id === this.game.world.currentMapId ? 'current' : ''}"><div class="map-symbol">${symbol}</div><div><h3>${map.name}</h3><p>${desc}</p></div>${id === this.game.world.currentMapId ? '<b>当前位置</b>' : ''}</article>`;
+    }).join('');
     this.window.innerHTML = menuShell('世界地图', `${body}<p class="hint">踏上地图边缘的紫色传送阵即可前往相邻区域。</p>`);
   }
 

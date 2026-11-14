@@ -7,7 +7,7 @@ export const TILE = {
   WALL: 9, FLOOR: 10, DOOR: 11,
   ORE_COPPER: 12, ORE_IRON: 13, ORE_GOLD: 14,
   CHEST: 15, PORTAL: 16, BRIDGE: 17,
-  WOOD_PILE: 18, STONE: 19,
+  WOOD_PILE: 18, STONE: 19, LAVA: 20,
 };
 
 // 瓦片属性：是否可通行、是否可采集、采集类型
@@ -32,6 +32,7 @@ export const TILE_PROPS = {
   [TILE.BRIDGE]:    { walk: true,  color: '#8b6f47' },
   [TILE.WOOD_PILE]: { walk: false, color: '#8b5a2b', chop: true },
   [TILE.STONE]:     { walk: false, color: '#888', mine: 'stone' },
+  [TILE.LAVA]:      { walk: false, color: '#c0392b' },
 };
 
 // 物品定义
@@ -57,6 +58,8 @@ export const ITEMS = {
   bat_wing:      { name: '蝙蝠翼', icon: '🦇', type: 'material', price: 15, desc: '薄如蝉翼' },
   bone:          { name: '骨头', icon: '🦴', type: 'material', price: 12,  desc: '亡灵遗物' },
   dragon_scale:  { name: '龙鳞', icon: '🐉', type: 'material', price: 200, desc: '坚硬的鳞片' },
+  fire_core:     { name: '火焰核心', icon: '🔥', type: 'material', price: 120, desc: '仍在燃烧的元素核心' },
+  magma_stone:   { name: '熔岩结晶', icon: '🪨', type: 'material', price: 70, desc: '凝固的炽热岩石' },
 
   // 武器
   wood_sword:    { name: '木剑', icon: '🗡️', type: 'weapon', atk: 5,  price: 50,  desc: '简陋的木剑', slot: 'weapon' },
@@ -64,6 +67,7 @@ export const ITEMS = {
   iron_sword:    { name: '铁剑', icon: '⚔️', type: 'weapon', atk: 22, price: 400, desc: '坚固的铁剑', slot: 'weapon' },
   steel_sword:   { name: '钢剑', icon: '⚔️', type: 'weapon', atk: 30, price: 700, desc: '精钢锻造的利剑', slot: 'weapon' },
   gold_sword:    { name: '黄金剑', icon: '⚔️', type: 'weapon', atk: 38, price: 1000, desc: '闪耀的黄金剑', slot: 'weapon' },
+  flame_sword:   { name: '烈焰剑', icon: '🔥', type: 'weapon', atk: 46, price: 1600, desc: '燃烧着永不熄灭的火焰', slot: 'weapon' },
   dragon_sword:  { name: '屠龙剑', icon: '🗡️', type: 'weapon', atk: 70, price: 5000, desc: '传说中的屠龙剑', slot: 'weapon', rare: true },
 
   wood_axe:      { name: '木斧', icon: '🪓', type: 'weapon', atk: 6,  price: 40,  desc: '可砍伐树木', slot: 'weapon', tool: 'axe' },
@@ -78,6 +82,7 @@ export const ITEMS = {
   iron_armor:    { name: '铁甲', icon: '🛡️', type: 'armor', def: 16, price: 500, desc: '坚固的铁甲', slot: 'armor' },
   steel_armor:   { name: '钢甲', icon: '🛡️', type: 'armor', def: 22, price: 800, desc: '精钢打造的护甲', slot: 'armor' },
   gold_armor:    { name: '金甲', icon: '🛡️', type: 'armor', def: 28, price: 1200,desc: '华丽的金甲', slot: 'armor' },
+  magma_armor:   { name: '熔岩护甲', icon: '🌋', type: 'armor', def: 36, price: 2000, desc: '由熔岩结晶铸成的护甲', slot: 'armor' },
   dragon_armor:  { name: '龙鳞甲', icon: '🛡️', type: 'armor', def: 50, price: 6000,desc: '传说级护甲', slot: 'armor', rare: true },
 
   // 饰品
@@ -103,6 +108,8 @@ export const RECIPES = [
   { id: 'steel_sword', out: 'steel_sword', outQty: 1, mats: { iron_ore: 4, wood: 2 }, name: '钢剑', skill: 'smithing', lv: 22 },
   { id: 'steel_armor', out: 'steel_armor', outQty: 1, mats: { iron_ore: 6, wolf_pelt: 2 }, name: '钢甲', skill: 'smithing', lv: 25 },
   { id: 'dragon_armor', out: 'dragon_armor', outQty: 1, mats: { dragon_scale: 2, gold_ore: 4, iron_ore: 2 }, name: '龙鳞甲', skill: 'smithing', lv: 30 },
+  { id: 'flame_sword', out: 'flame_sword', outQty: 1, mats: { fire_core: 3, iron_ore: 4 }, name: '烈焰剑', skill: 'smithing', lv: 30 },
+  { id: 'magma_armor', out: 'magma_armor', outQty: 1, mats: { magma_stone: 4, fire_core: 2, iron_ore: 3 }, name: '熔岩护甲', skill: 'smithing', lv: 32 },
   { id: 'copper_ring', out: 'copper_ring', outQty: 1, mats: { copper_ore: 2 }, name: '铜戒指', skill: 'smithing', lv: 12 },
   { id: 'hp_potion', out: 'hp_potion', outQty: 1, mats: { slime_gel: 2 }, name: '生命药水', skill: 'alchemy', lv: 3 },
   { id: 'mp_potion', out: 'mp_potion', outQty: 1, mats: { bat_wing: 2 }, name: '法力药水', skill: 'alchemy', lv: 5 },
@@ -117,6 +124,9 @@ export const ENEMIES = {
   skeleton: { name: '骷髅兵', icon: '💀', hp: 110, atk: 20, def: 8, xp: 75, gold: [15, 35], drops: [{ id: 'bone', chance: 0.5 }, { id: 'iron_ore', chance: 0.15 }], lvl: 8, color: '#d8d8c8' },
   ogre: { name: '食人魔', icon: '👹', hp: 200, atk: 32, def: 12, xp: 140, gold: [30, 70], drops: [{ id: 'iron_ore', chance: 0.4 }, { id: 'gold_ore', chance: 0.1 }], lvl: 12, color: '#9a6a4a' },
   dark_mage: { name: '黑暗法师', icon: '🧙', hp: 160, atk: 38, def: 8, xp: 180, gold: [40, 90], drops: [{ id: 'mp_potion', chance: 0.5 }, { id: 'gold_ore', chance: 0.2 }], lvl: 14, color: '#6a3a8a' },
+  fire_elemental: { name: '火焰元素', icon: '🔥', hp: 260, atk: 44, def: 14, xp: 220, gold: [45, 95], drops: [{ id: 'fire_core', chance: 0.55 }, { id: 'gold_ore', chance: 0.15 }], lvl: 18, color: '#e8622c' },
+  lava_golem: { name: '熔岩巨人', icon: '🌋', hp: 420, atk: 55, def: 22, xp: 320, gold: [70, 140], drops: [{ id: 'magma_stone', chance: 0.6 }, { id: 'iron_ore', chance: 0.3 }], lvl: 22, color: '#a33b23' },
+  fire_drake: { name: '炎鳞亚龙', icon: '🐲', hp: 550, atk: 62, def: 24, xp: 420, gold: [100, 200], drops: [{ id: 'dragon_scale', chance: 0.22 }, { id: 'fire_core', chance: 0.45 }], lvl: 26, color: '#d4552e' },
   dragon: { name: '巨龙', icon: '🐉', hp: 800, atk: 65, def: 25, xp: 800, gold: [200, 500], drops: [{ id: 'dragon_scale', chance: 1.0 }, { id: 'gold_ore', chance: 1.0, qty: 3 }], lvl: 25, color: '#c0392b', boss: true },
 };
 
@@ -167,6 +177,7 @@ function parseMap(rows) {
       case 'B': return TILE.BRIDGE;
       case 'L': return TILE.WOOD_PILE;
       case 'o': return TILE.STONE;
+      case 'v': return TILE.LAVA;
       default: return TILE.GRASS;
     }
   }));
@@ -265,7 +276,7 @@ export const MAPS = {
   dungeon: {
     name: '龙之巢穴',
     spawn: { x: 1, y: 10 },
-    portals: [{ x: 0, y: 10, to: 'cave', toX: 38, toY: 5 }],
+    portals: [{ x: 0, y: 10, to: 'cave', toX: 38, toY: 5 }, { x: 38, y: 10, to: 'volcano', toX: 1, toY: 8 }],
     enemies: ['skeleton', 'dark_mage', 'dragon'],
     boss: { x: 20, y: 8, id: 'dragon' },
     rows: parseMap([
@@ -279,12 +290,36 @@ export const MAPS = {
       'WWWWFWWWWWWWWWWFWWWWWWWWWWFWWWWWWWWWWFWW',
       'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
       'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
-      'PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
+      'PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFPW',
       'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
       'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
       'WWWWFWWWWWWWWWWFWWWWWWWWWWFWWWWWWWWWWFWW',
       'WFFFFFFFFFWFFFFFFFFFWFFFFFFFFFWFFFFFFFFW',
       'WFFFFFFFFFWFFFFFFFFFWFFFFFFFFFWFFFFFFFFW',
+      'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+    ]),
+  },
+  volcano: {
+    name: '熔岩深渊',
+    spawn: { x: 1, y: 8 },
+    portals: [{ x: 0, y: 8, to: 'dungeon', toX: 37, toY: 10 }],
+    enemies: ['fire_elemental', 'lava_golem', 'fire_drake'],
+    rows: parseMap([
+      'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+      'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
+      'WFFFF3FFFFFWFFFFFFFFFFCFFFFFFFFFFFFF1FFW',
+      'WFFFF3FFFFFWFFFFFFFFFFFFFFFFFFvvvvvvFFFW',
+      'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFvvvvvvFFFW',
+      'WFFFFFFFFFFFFvvvvvvFFvvvvvvFFFvvvvvvFFFW',
+      'WFFFFFFFFF2FFvvvvvvFFvvvvvvFF2FFFFFFFFFW',
+      'WFFWFFFFFFFFFvvvvvvFFvvvvvvFFFFFFFFFFFFW',
+      'PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
+      'WFFFFFFFFFFFFFFFF2FFFFFFFFFFFFFFFFFFFFFW',
+      'WFFFvvvvvFFFFFFFFFFFFFFFWFFFFFFFFF3FFFFW',
+      'WFFFvvvvvFFFFFFWFFFFFFFFFFFFFFFFFF3FFFFW',
+      'WFFFvvvvvFFFFFFFFFFFFFFFFFFFWFFFFFFFWFFW',
+      'WFF1FFFFFFFFFFFFFFFF3FFFFFFFWFFFFFFFFFFW',
+      'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
       'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
     ]),
   },
@@ -328,6 +363,7 @@ export const NPCS = {
   apprentice: { name: '铁匠学徒', icon: '🧑‍🏭', map: 'town', x: 28, y: 4, quest: 'q_iron', dialog: '师父的铁矿快用完了，能帮我采4块铁矿吗？洞穴深处就有。' },
   guard: { name: '卫兵', icon: '💂', map: 'town', x: 33, y: 13, quest: 'q_skeleton', dialog: '洞穴里的骷髅兵越来越多，能帮我消灭6只吗？' },
   cook: { name: '厨师', icon: '👨‍🍳', map: 'town', x: 18, y: 6, quest: 'q_feast', dialog: '我想做一桌海鲜大餐，能帮我钓4条鱼吗？' },
+  explorer: { name: '探险家', icon: '🧭', map: 'town', x: 33, y: 4, quest: 'q_volcano', dialog: '龙巢深处还有一道裂缝，通向熔岩深渊……那里的火焰元素守护着锻造神兵的力量。' },
 };
 
 // 任务定义
@@ -340,6 +376,7 @@ export const QUESTS = {
   q_iron: { name: '铁匠的委托', desc: '采集4个铁矿', type: 'gather', target: 'iron_ore', qty: 4, reward: { gold: 250, xp: 450, items: { iron_pick: 1 } } },
   q_skeleton: { name: '洞穴清剿', desc: '击败6只骷髅兵', type: 'kill', target: 'skeleton', qty: 6, reward: { gold: 300, xp: 550, items: { copper_ring: 1 } } },
   q_feast: { name: '海鲜大餐', desc: '为厨师钓4条鱼', type: 'gather', target: 'fish', qty: 4, reward: { gold: 120, xp: 220, items: { cooked_fish: 3 } } },
+  q_volcano: { name: '熔岩的试炼', desc: '击败8只火焰元素', type: 'kill', target: 'fire_elemental', qty: 8, reward: { gold: 600, xp: 1500, items: { flame_sword: 1 } } },
 };
 
 // 商店物品
@@ -348,7 +385,7 @@ export const SHOP_ITEMS = [
   'wood_sword', 'wood_axe', 'wood_pick', 'fishing_rod',
   'cloth_armor', 'copper_sword', 'copper_ring', 'leather_armor',
   'iron_sword', 'iron_armor', 'amulet', 'gold_sword', 'gold_armor', 'gold_ring',
-  'steel_sword', 'steel_armor',
+  'steel_sword', 'steel_armor', 'flame_sword', 'magma_armor',
 ];
 
 // 初始装备
