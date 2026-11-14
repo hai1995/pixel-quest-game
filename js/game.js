@@ -55,6 +55,11 @@ export class Game {
     this.clickPath = null;
     this.clickGoal = null;
     this.clickMarker = null;
+    this.clickAction = null;
+    this.clickAttack = null;
+    this.clickGoalKey = '';
+    this.clickRepathCooldown = 0;
+    this.clickAttackMisses = 0;
     this.dt = 0;
     this.dialogue = null;
     this.syncPlayerToSpawn();
@@ -92,9 +97,7 @@ export class Game {
     this.input.reset();
     this.auto = false;
     this.pathCache = null;
-    this.clickPath = null;
-    this.clickGoal = null;
-    this.clickMarker = null;
+    this.cancelClickMove();
     this.autoUnreachable.clear();
     this.autoRoamTarget = null;
     this.autoRestocking = false;
@@ -109,7 +112,7 @@ export class Game {
     this.ui.combatLog.innerHTML = '';
     document.getElementById('start-screen').classList.add('hidden');
     this.ui.log('欢迎来到黎明村，勇者！', 'good');
-    this.ui.toast('冒险开始！点击地图自动前往，或用方向键移动', 'good');
+    this.ui.toast('冒险开始！点击地图移动，点击怪物/资源/NPC 自动交互', 'good');
     this.save();
   }
 
@@ -137,9 +140,7 @@ export class Game {
       this.input.reset();
       this.auto = !!save.auto;
       this.pathCache = null;
-      this.clickPath = null;
-      this.clickGoal = null;
-      this.clickMarker = null;
+      this.cancelClickMove();
       this.autoUnreachable.clear();
       this.autoRoamTarget = null;
       this.autoRestocking = false;
@@ -183,6 +184,7 @@ export class Game {
       return;
     }
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+    this.clickRepathCooldown = Math.max(0, this.clickRepathCooldown - dt);
     this.gatherCooldown = Math.max(0, this.gatherCooldown - dt);
     this.player.hurtFlash = Math.max(0, this.player.hurtFlash - dt);
     this.player.invulnTime = Math.max(0, this.player.invulnTime - dt);
@@ -352,14 +354,32 @@ export class Game {
     const tx = Math.floor(sx / this.renderer.tileSize + this.renderer.cameraX);
     const ty = Math.floor(sy / this.renderer.tileSize + this.renderer.cameraY);
     if (tx < 0 || ty < 0 || tx >= this.world.width || ty >= this.world.height) return false;
-    if (tx === this.player.x && ty === this.player.y && !this.player.moving) {
+    const enemy = this.world.getEnemyAt(tx, ty);
+    const npc = !enemy && this.world.npcs.find(item => item.x === tx && item.y === ty);
+    const props = TILE_PROPS[this.world.getTile(tx, ty)];
+    const harvest = !!props && (props.chop || props.mine || props.fish || props.chest);
+    if (tx === this.player.x && ty === this.player.y && !enemy && !npc && !harvest) {
       this.cancelClickMove();
       return true;
     }
     if (this.auto) this.toggleAuto();
+    this.cancelClickMove();
+    if (enemy) this.clickAttack = enemy;
+    else if (npc) this.clickAction = { type: 'talk', npc };
+    else if (harvest) this.clickAction = { type: 'gather', x: tx, y: ty };
     this.clickGoal = { x: tx, y: ty };
-    this.clickPath = null;
     this.clickMarker = { x: tx, y: ty };
+    // 已经在交互范围内时直接执行，不再寻路
+    if (distCheb(this.player, { x: tx, y: ty }) <= 1) {
+      if (this.clickAction) {
+        this.finishClickAction();
+        return true;
+      }
+      if (this.clickAttack) {
+        this.updateClickMove();
+        return true;
+      }
+    }
     if (!this.player.moving) this.updateClickMove();
     return true;
   }
@@ -371,7 +391,7 @@ export class Game {
     if (tx === startX && ty === startY) return [];
     const walkable = (x, y) => world.isWalkable(x, y, this.player);
     const candidates = [];
-    // 目标本身可通行时优先直达；障碍物（树、矿、敌人）则走到相邻格
+    // 目标本身可通行时优先直达；树、矿、NPC、敌人等则走到相邻格
     if (walkable(tx, ty)) candidates.push({ x: tx, y: ty });
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const x = tx + dx;
@@ -391,43 +411,108 @@ export class Game {
   }
 
   updateClickMove() {
-    if (!this.clickGoal) return;
+    if (!this.clickGoal && !this.clickAttack) return;
     if (this.input.dirX !== 0 || this.input.dirY !== 0) {
       this.cancelClickMove();
       return;
     }
-    if (this.player.moving) return;
+    if (this.clickAttack) {
+      const enemy = this.clickAttack;
+      if (enemy.dead || !this.world.enemies.includes(enemy)) {
+        this.cancelClickMove();
+        return;
+      }
+      if (distCheb(this.player, enemy) <= 1) {
+        if (!this.player.moving) {
+          this.faceTarget(enemy);
+          this.attackNow();
+        }
+        return;
+      }
+      // 敌人会移动，位置变化后重新规划路线
+      const key = `${enemy.x},${enemy.y}`;
+      if (key !== this.clickGoalKey) {
+        this.clickGoalKey = key;
+        this.clickGoal = { x: enemy.x, y: enemy.y };
+        this.clickMarker = { x: enemy.x, y: enemy.y };
+        this.clickPath = null;
+      }
+    }
+    if (this.player.moving || this.clickRepathCooldown > 0) return;
     if (!this.clickPath) {
       const path = this.findClickPath(this.clickGoal.x, this.clickGoal.y);
       if (!path || !path.length) {
+        if (this.clickAttack) {
+          this.clickAttackMisses++;
+          if (this.clickAttackMisses > 10) {
+            this.cancelClickMove();
+            this.ui.toast('无法接近目标');
+            return;
+          }
+          this.clickRepathCooldown = 0.35;
+          return;
+        }
         this.cancelClickMove();
         this.ui.toast('无法前往该地点');
         return;
       }
       this.clickPath = path;
+      this.clickAttackMisses = 0;
     }
     while (this.clickPath.length && this.clickPath[0].x === this.player.x && this.clickPath[0].y === this.player.y) {
       this.clickPath.shift();
     }
     if (!this.clickPath.length) {
-      this.cancelClickMove();
+      if (this.clickAction) this.finishClickAction();
+      else if (this.clickAttack) {
+        this.clickPath = null;
+        this.clickGoalKey = '';
+        this.clickRepathCooldown = 0.35;
+      } else this.cancelClickMove();
       return;
     }
     const next = this.clickPath[0];
     const allowPortal = !!this.world.getPortalAt(next.x, next.y);
     if (!this.autoMove(next.x - this.player.x, next.y - this.player.y, allowPortal)) {
+      if (this.clickAttack) {
+        this.clickAttackMisses++;
+        this.clickPath = null;
+        this.clickRepathCooldown = 0.35;
+        return;
+      }
       this.cancelClickMove();
       this.ui.toast('前路被挡住了');
       return;
     }
     this.clickPath.shift();
-    if (!this.clickPath.length) this.cancelClickMove();
+  }
+
+  finishClickAction() {
+    const action = this.clickAction;
+    this.cancelClickMove();
+    if (!action) return;
+    if (action.type === 'gather') {
+      const tile = this.world.getTile(action.x, action.y);
+      const props = TILE_PROPS[tile];
+      if (!props || !(props.chop || props.mine || props.fish || props.chest)) return;
+      if (distCheb(this.player, action) > 1) return;
+      this.gather({ x: action.x, y: action.y, tile });
+    } else if (action.type === 'talk') {
+      if (this.world.npcs.includes(action.npc) && distCheb(this.player, action.npc) <= 1) {
+        this.startDialogue(action.npc);
+      }
+    }
   }
 
   cancelClickMove() {
     this.clickPath = null;
     this.clickGoal = null;
     this.clickMarker = null;
+    this.clickAction = null;
+    this.clickAttack = null;
+    this.clickGoalKey = '';
+    this.clickRepathCooldown = 0;
+    this.clickAttackMisses = 0;
   }
 
   checkPortal() {
@@ -474,6 +559,11 @@ export class Game {
   tryAttack() {
     if (this.attackCooldown > 0) return;
     this.cancelClickMove();
+    this.attackNow();
+  }
+
+  attackNow() {
+    if (this.attackCooldown > 0) return;
     const target = this.findAdjacentEnemy();
     this.attackCooldown = 0.26;
     this.player.attackAnim = 1;
