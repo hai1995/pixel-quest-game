@@ -47,6 +47,10 @@ export class Game {
     this.autoRestocking = false;
     this.autoRestockCooldown = 0;
     this.autoWeaponBeforeTool = null;
+    this.autoStuckTime = 0;
+    this.autoWatchKey = '';
+    this.autoWatchGold = -1;
+    this.autoDialogueTime = 0;
     this.pathCache = null;
     this.dt = 0;
     this.dialogue = null;
@@ -193,6 +197,14 @@ export class Game {
       return;
     }
 
+    if (this.auto && this.dialogue) {
+      this.autoDialogueTime += dt;
+      if (this.autoDialogueTime > 2) {
+        this.autoDialogueTime = 0;
+        this.closeDialogue();
+      }
+    }
+
     if (!this.ui.currentMenu && !this.dialogue) {
       this.updateMovement(dt);
       this.world.update(dt, this);
@@ -202,12 +214,38 @@ export class Game {
       if (this.world.map.safe) this.player.heal(dt * 1.2);
     }
 
+    if (this.auto) this.updateAutoWatchdog(dt);
+
     this.saveTimer += dt;
     if (this.saveTimer >= 5) {
       this.saveTimer = 0;
       this.save();
     }
     this.updateHud(dt);
+  }
+
+  updateAutoWatchdog(dt) {
+    if (this.ui.currentMenu || this.dialogue || this.world.map.safe || this.player.moving || this.attackCooldown > 0) {
+      this.autoStuckTime = 0;
+      return;
+    }
+    const key = `${this.player.x},${this.player.y}`;
+    if (key !== this.autoWatchKey || this.player.gold !== this.autoWatchGold) {
+      this.autoWatchKey = key;
+      this.autoWatchGold = this.player.gold;
+      this.autoStuckTime = 0;
+      return;
+    }
+    this.autoStuckTime += dt;
+    // 长时间原地不动且没有攻击/收入，说明寻路卡住了，清空缓存重新找目标
+    if (this.autoStuckTime > 10) {
+      this.autoStuckTime = 0;
+      this.pathCache = null;
+      this.autoRoamTarget = null;
+      this.autoRepathCooldown = 0;
+      this.autoUnreachable.clear();
+      this.setAutoStatus('重新寻路');
+    }
   }
 
   updateHud(dt) {
@@ -354,6 +392,10 @@ export class Game {
     this.autoRoamTarget = null;
     this.autoRestocking = false;
     this.autoRestockCooldown = 0;
+    this.autoStuckTime = 0;
+    this.autoWatchKey = '';
+    this.autoWatchGold = -1;
+    this.autoDialogueTime = 0;
     this.syncAutoUI();
     sfx.menu();
     this.ui.toast(this.auto ? '自动动作已开启：战斗、采集、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
@@ -745,7 +787,7 @@ export class Game {
     if (ratio < 0.7 || this.findAdjacentEnemy()) return false;
     const currentId = this.world.currentMapId;
     const currentMax = this.mapMaxEnemyLevel(currentId);
-    if (!currentMax || this.player.level < currentMax + 4) return false;
+    if (!currentMax || this.player.level < currentMax + 3) return false;
     if (this.killQuestBlocksAdvance(currentId)) return false;
     const portal = this.world.portals.find(item => {
       const next = MAPS[item.to];
@@ -1467,6 +1509,7 @@ export class Game {
   startDialogue(npc) {
     if (this.player.moving) return;
     this.dialogue = { npc, stage: 0 };
+    this.autoDialogueTime = 0;
     sfx.menu();
     this.ui.showDialogue(npc.name, npc.dialog);
   }
