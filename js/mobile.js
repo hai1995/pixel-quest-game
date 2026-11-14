@@ -7,29 +7,6 @@ export function initMobile(game) {
 
   document.body.classList.add('touch-mode');
 
-  document.querySelectorAll('#mobile-ui [data-key]').forEach(button => {
-    const key = button.dataset.key;
-    let activeId = null;
-    const stop = () => {
-      if (activeId === null) return;
-      activeId = null;
-      game.input.release(key);
-      button.classList.remove('active');
-    };
-    button.addEventListener('pointerdown', event => {
-      event.preventDefault();
-      if (activeId !== null) return;
-      activeId = event.pointerId;
-      try { button.setPointerCapture(event.pointerId); } catch { /* ignore */ }
-      game.input.press(key);
-      button.classList.add('active');
-      navigator.vibrate?.(6);
-    });
-    button.addEventListener('pointerup', stop);
-    button.addEventListener('pointercancel', stop);
-    button.addEventListener('lostpointercapture', stop);
-  });
-
   document.querySelectorAll('#mobile-skills [data-skill]').forEach(button => {
     button.addEventListener('pointerdown', event => {
       event.preventDefault();

@@ -33,6 +33,7 @@ export class Game {
     this.hudTimer = 0;
     this.attackCooldown = 0;
     this.gatherCooldown = 0;
+    this.bumpCooldown = 0;
     this.deathTimer = 0;
     this.hitStop = 0;
     this.fade = 0;
@@ -65,6 +66,7 @@ export class Game {
     this.hoverTile = null;
     this.dt = 0;
     this.dialogue = null;
+    this.contactNpc = null;
     this.syncPlayerToSpawn();
     this.ui = new UI(this);
   }
@@ -90,6 +92,7 @@ export class Game {
     this.syncPlayerToSpawn();
     this.effects = [];
     this.dialogue = null;
+    this.contactNpc = null;
     this.started = true;
     this.saveTimer = 0;
     this.attackCooldown = 0;
@@ -138,6 +141,7 @@ export class Game {
       this.player.mapId = this.world.currentMapId;
       this.effects = [];
       this.dialogue = null;
+      this.contactNpc = null;
       this.started = true;
       this.saveTimer = 0;
       this.fade = 0.4;
@@ -319,7 +323,7 @@ export class Game {
         p.y = p.targetY;
         p.moving = false;
         sfx.step();
-        this.checkPortal();
+        if (!this.checkPortal()) this.checkNpcContact();
       } else {
         p.px += ((p.targetPx - p.px) / remain) * step;
         p.py += ((p.targetPy - p.py) / remain) * step;
@@ -347,8 +351,22 @@ export class Game {
       } else if (this.bumpCooldown <= 0) {
         this.bumpCooldown = 0.42;
         sfx.step();
+        this.checkNpcContact();
       }
     }
+  }
+
+  // 走到 NPC 旁边或撞上 NPC 时自动交谈
+  checkNpcContact() {
+    if (this.auto || this.player.dead || this.player.moving || this.ui.currentMenu || this.dialogue) return;
+    const npc = this.world.getNearbyNPC(this.player);
+    if (!npc) {
+      this.contactNpc = null;
+      return;
+    }
+    if (this.contactNpc === npc) return;
+    this.contactNpc = npc;
+    this.startDialogue(npc);
   }
 
   clickToMove(clientX, clientY) {
@@ -562,7 +580,7 @@ export class Game {
 
   checkPortal() {
     const portal = this.world.getPortalAt(this.player.x, this.player.y);
-    if (!portal || !MAPS[portal.to]) return;
+    if (!portal || !MAPS[portal.to]) return false;
     this.cancelClickMove();
     this.clearHover();
     this.world.loadMap(portal.to);
@@ -578,6 +596,7 @@ export class Game {
     this.ui.toast(`来到 ${this.world.map.name}`);
     this.ui.log(`进入${this.world.map.name}`);
     this.save();
+    return true;
   }
 
   findAdjacentEnemy() {
@@ -1862,6 +1881,7 @@ export class Game {
 
   startDialogue(npc) {
     if (this.player.moving) return;
+    this.contactNpc = npc;
     this.dialogue = { npc, stage: 0 };
     this.autoDialogueTime = 0;
     sfx.menu();

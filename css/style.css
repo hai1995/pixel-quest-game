@@ -152,12 +152,6 @@ body.touch-mode #mobile-hud { display: flex !important; }
 .mh-bars b { display: block; width: 100%; height: 100%; }
 #mh-hp { background: #e25767; }
 #mh-mp { background: #569bd8; }
-#action-buttons { position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 9px; }
-#action-buttons button { color: #f5e7bd; background: rgba(40,52,62,.88); border: 2px solid rgba(214,190,125,.55); box-shadow: 3px 4px 0 rgba(0,0,0,.28); }
-#action-buttons button.active, #action-buttons button:active { transform: translate(2px,2px); background: rgba(111,82,62,.9); box-shadow: 1px 2px 0 rgba(0,0,0,.25); }
-.utility-actions { display: flex; flex-direction: column; gap: 8px; }
-.utility-actions button { width: 55px; height: 43px; font-size: 11px; }
-#mobile-attack { width: 78px; height: 78px; border-radius: 50%; color: #ffe5ad !important; background: rgba(137,57,57,.88) !important; border-color: rgba(244,158,110,.75) !important; font-weight: 900; font-size: 16px; }
 #mobile-skills { position: absolute; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); display: flex; gap: 5px; transform: translateX(-50%); }
 #mobile-skills button { position: relative; width: 42px; height: 47px; padding: 3px 0 0; color: #f1e6c9; background: rgba(29,43,56,.9); border: 1px solid #667a87; box-shadow: 2px 3px 0 rgba(0,0,0,.3); }
 #mobile-skills .skill-glyph { display: block; font-weight: 900; font-size: 16px; }
@@ -165,9 +159,9 @@ body.touch-mode #mobile-hud { display: flex !important; }
 #mobile-skills button.locked { opacity: .48; filter: grayscale(1); }
 #mobile-skills button.cooling { border-color: #a77b55; }
 #mobile-skills button.cooling small { color: #ffc478; }
-body.touch-mode #combat-log { left: 12px; bottom: 150px; max-width: 64%; }
+body.touch-mode #combat-log { left: 12px; bottom: 96px; max-width: 64%; }
 body.touch-mode .log-line { font-size: 9px; }
-body.touch-mode #dialogue-box { bottom: calc(max(20px, env(safe-area-inset-bottom)) + 126px); width: calc(100% - 28px); padding: 12px 15px 10px; }
+body.touch-mode #dialogue-box { bottom: calc(max(20px, env(safe-area-inset-bottom)) + 68px); width: calc(100% - 28px); padding: 12px 15px 10px; }
 body.touch-mode #toast-layer { top: calc(max(7px, env(safe-area-inset-top)) + 85px); }
 body.touch-mode #menu-overlay { position: fixed; padding: calc(max(8px, env(safe-area-inset-top)) + 46px) 10px calc(max(8px, env(safe-area-inset-bottom)) + 8px); }
 body.touch-mode #menu-window { width: min(680px, 100%); max-height: 100%; }
@@ -189,14 +183,11 @@ body.touch-mode .start-help { display: flex !important; }
   #mobile-topbar button { width: 36px; height: 34px; font-size: 12px; }
   #mobile-hud { top: calc(max(6px, env(safe-area-inset-top)) + 40px); width: min(286px, 78%); gap: 6px; }
   #mh-map { max-width: 68px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c6b382; }
-  #action-buttons { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px); gap: 8px; }
-  #mobile-attack { width: 74px; height: 74px; font-size: 14px; }
-  .utility-actions button { width: 52px; height: 39px; font-size: 10px; }
-  #mobile-skills { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 130px); gap: 6px; }
+  #mobile-skills { bottom: max(14px, env(safe-area-inset-bottom)); gap: 6px; }
   #mobile-skills button { width: 44px; height: 46px; }
   #mobile-skills .skill-glyph { font-size: 17px; }
   body.touch-mode #combat-log { display: none; }
-  body.touch-mode #dialogue-box { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 190px); width: calc(100% - 24px); }
+  body.touch-mode #dialogue-box { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); width: calc(100% - 24px); }
   body.touch-mode #toast-layer { top: calc(max(6px, env(safe-area-inset-top)) + 76px); }
   body.touch-mode #menu-overlay { padding: calc(max(6px, env(safe-area-inset-top)) + 42px) 8px calc(max(8px, env(safe-area-inset-bottom)) + 8px); }
   body.touch-mode #menu-window { width: 100%; }
@@ -212,9 +203,6 @@ body.touch-mode .start-help { display: flex !important; }
   #mobile-topbar { left: auto; right: max(8px, env(safe-area-inset-right)); transform: none; }
   #mobile-topbar button { width: 34px; height: 31px; font-size: 11px; }
   #mobile-hud { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: 210px; transform: none; }
-  #action-buttons { bottom: max(10px, env(safe-area-inset-bottom)); }
-  #mobile-attack { width: 65px; height: 65px; }
-  .utility-actions button { height: 35px; }
   #mobile-skills { bottom: max(10px, env(safe-area-inset-bottom)); }
   #mobile-skills button { width: 37px; height: 41px; }
   #mobile-skills .skill-glyph { font-size: 14px; }
@@ -247,7 +235,6 @@ body.touch-mode .start-help { display: flex !important; }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 #mobile-skills button.active { transform: scale(.93); filter: brightness(1.35); }
-#mobile-attack.active { transform: scale(.93); filter: brightness(1.25); }
 .side-nav button.auto-on, #mobile-topbar button.auto-on {
   color: #21180a;
   background: #e6c46c;
