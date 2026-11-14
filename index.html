@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#101720">
+  <title>像素冒险 · Pixel Quest</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <div id="app">
+    <main id="game-wrap">
+      <canvas id="game" width="960" height="640" aria-label="像素冒险游戏画面"></canvas>
+
+      <div id="combat-log" aria-live="polite"></div>
+      <div id="toast-layer" aria-live="polite"></div>
+
+      <div id="mobile-hud" class="mobile-only">
+        <span id="mh-lv">Lv.1</span>
+        <div class="mh-bars"><i class="mh-hp-track"><b id="mh-hp"></b></i><i class="mh-mp-track"><b id="mh-mp"></b></i></div>
+        <span id="mh-gold">60 G</span>
+      </div>
+
+      <section id="dialogue-box" class="hidden">
+        <strong id="dialogue-name">村民</strong>
+        <p id="dialogue-text"></p>
+        <small>按空格 / 点击继续</small>
+      </section>
+
+      <div id="menu-overlay" class="hidden">
+        <section id="menu-window" role="dialog" aria-modal="true"></section>
+      </div>
+
+      <div id="mobile-ui" class="mobile-only">
+        <nav id="mobile-topbar" aria-label="游戏菜单">
+          <button data-menu="inventory" aria-label="背包">包</button>
+          <button data-menu="skills" aria-label="技能">技</button>
+          <button data-menu="character" aria-label="角色">角</button>
+          <button data-menu="quests" aria-label="任务">任</button>
+          <button data-menu="map" aria-label="地图">图</button>
+          <button id="mobile-fullscreen" aria-label="全屏">全</button>
+        </nav>
+
+        <div id="joystick" aria-label="虚拟摇杆"><div id="joystick-knob"></div></div>
+
+        <div id="mobile-skills">
+          <button data-skill="heal" data-label="治"><span class="skill-glyph">治</span><small class="skill-state">12</small></button>
+          <button data-skill="power_strike" data-label="强"><span class="skill-glyph">强</span><small class="skill-state">8</small></button>
+          <button data-skill="fireball" data-label="火"><span class="skill-glyph">火</span><small class="skill-state">18</small></button>
+          <button data-skill="whirlwind" data-label="旋"><span class="skill-glyph">旋</span><small class="skill-state">15</small></button>
+          <button data-skill="shield" data-label="盾"><span class="skill-glyph">盾</span><small class="skill-state">10</small></button>
+        </div>
+
+        <div id="action-buttons">
+          <div class="utility-actions"><button data-key="f">采集</button><button data-key="e">交互</button></div>
+          <button id="mobile-attack" data-key="space">攻击</button>
+        </div>
+      </div>
+
+      <div id="start-screen">
+        <section class="start-card">
+          <div class="start-rune">✦</div>
+          <p class="eyebrow">PIXEL QUEST</p>
+          <h1>像素冒险</h1>
+          <p class="start-subtitle">穿越森林与洞穴，书写你的屠龙传说</p>
+          <div class="start-actions">
+            <button id="btn-new" class="pixel-btn primary">开始新冒险</button>
+            <button id="btn-continue" class="pixel-btn secondary">继续游戏</button>
+          </div>
+          <div class="start-help desktop-only"><span>WASD / 方向键 移动</span><span>空格 攻击</span><span>E 交互 · F 采集</span><span>I 背包 · K 技能 · Q 任务</span></div>
+          <div class="start-help mobile-only"><span>左侧摇杆移动</span><span>右侧按钮攻击、采集与交互</span></div>
+          <small class="save-note">游戏每 5 秒自动保存</small>
+        </section>
+      </div>
+    </main>
+
+    <aside id="sidebar">
+      <header class="brand"><span class="brand-mark">✦</span><div><h1>像素冒险</h1><small>PIXEL QUEST</small></div></header>
+      <section class="player-summary">
+        <div class="summary-title"><div class="portrait">勇</div><div><strong>勇者 <span id="player-level">1</span> 级</strong><small id="map-name">黎明村</small></div><span class="gold">◈ <b id="player-gold">60</b></span></div>
+        <label>生命 <span id="hp-text">100 / 100</span></label><div class="bar hp"><i id="hp-bar"></i></div>
+        <label>法力 <span id="mp-text">50 / 50</span></label><div class="bar mp"><i id="mp-bar"></i></div>
+        <label>经验 <span id="xp-text">0 / 100</span></label><div class="bar xp"><i id="xp-bar"></i></div>
+      </section>
+      <nav class="side-nav">
+        <button data-menu="inventory"><span>🎒</span>背包<kbd>I</kbd></button>
+        <button data-menu="skills"><span>✦</span>技能<kbd>K</kbd></button>
+        <button data-menu="character"><span>♙</span>角色<kbd>C</kbd></button>
+        <button data-menu="quests"><span>📜</span>任务<em id="quest-count">0</em><kbd>Q</kbd></button>
+        <button data-menu="map"><span>🗺</span>地图<kbd>M</kbd></button>
+        <button data-menu="craft"><span>⚒</span>制作</button>
+      </nav>
+      <section class="controls-help"><h3>操作指南</h3><p><kbd>WASD</kbd> / <kbd>方向键</kbd> 移动</p><p><kbd>空格</kbd> 攻击 · <kbd>E</kbd> 交互</p><p><kbd>F</kbd> 采集 · <kbd>1-5</kbd> 主动技能</p></section>
+      <footer>进度自动保存在本机浏览器</footer>
+    </aside>
+  </div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
