@@ -32,6 +32,7 @@ export function initMobile(game) {
     joystickPointer = null;
     game.input.vjoy.x = 0;
     game.input.vjoy.y = 0;
+    joystick.classList.remove('active');
     knob.style.transform = 'translate(0, 0)';
   };
 
@@ -39,6 +40,7 @@ export function initMobile(game) {
     event.preventDefault();
     joystickPointer = event.pointerId;
     joystick.setPointerCapture(event.pointerId);
+    joystick.classList.add('active');
     updateJoystick(event);
   });
   joystick.addEventListener('pointermove', event => {
@@ -52,18 +54,37 @@ export function initMobile(game) {
   joystick.addEventListener('lostpointercapture', resetJoystick);
 
   document.querySelectorAll('#mobile-ui [data-key]').forEach(button => {
-    button.addEventListener('click', event => {
+    const key = button.dataset.key;
+    let activeId = null;
+    const stop = () => {
+      if (activeId === null) return;
+      activeId = null;
+      game.input.release(key);
+      button.classList.remove('active');
+    };
+    button.addEventListener('pointerdown', event => {
       event.preventDefault();
-      game.input.press(button.dataset.key);
-      game.input.release(button.dataset.key);
+      if (activeId !== null) return;
+      activeId = event.pointerId;
+      try { button.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+      game.input.press(key);
+      button.classList.add('active');
+      navigator.vibrate?.(6);
     });
+    button.addEventListener('pointerup', stop);
+    button.addEventListener('pointercancel', stop);
+    button.addEventListener('lostpointercapture', stop);
   });
 
   document.querySelectorAll('#mobile-skills [data-skill]').forEach(button => {
-    button.addEventListener('click', event => {
+    button.addEventListener('pointerdown', event => {
       event.preventDefault();
       game.useActiveSkill(button.dataset.skill);
+      button.classList.add('active');
+      navigator.vibrate?.(8);
     });
+    button.addEventListener('pointerup', () => button.classList.remove('active'));
+    button.addEventListener('pointercancel', () => button.classList.remove('active'));
   });
 
   const dialogue = document.getElementById('dialogue-box');

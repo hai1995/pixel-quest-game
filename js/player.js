@@ -24,6 +24,7 @@ export class Player {
     this.skillCooldowns = {};
     this.dir = 'down';
     this.animFrame = 0;
+    this.attackAnim = 0;
     this.hurtFlash = 0;
     this.shieldTime = 0;
     this.invulnTime = 0;

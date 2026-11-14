@@ -7,6 +7,7 @@ import { QuestSystem } from './quests.js';
 import { UI } from './ui.js';
 import { fireball, playerAttack, powerStrike, whirlwind } from './combat.js';
 import { distCheb } from './utils.js';
+import { sfx } from './audio.js';
 
 const SAVE_KEY = 'pixel-quest-save';
 const SKILL_KEYS = { '1': 'heal', '2': 'power_strike', '3': 'fireball', '4': 'whirlwind', '5': 'shield' };
@@ -28,6 +29,9 @@ export class Game {
     this.attackCooldown = 0;
     this.gatherCooldown = 0;
     this.deathTimer = 0;
+    this.hitStop = 0;
+    this.fade = 0;
+    this.dt = 0;
     this.dialogue = null;
     this.syncPlayerToSpawn();
     this.ui = new UI(this);
@@ -38,6 +42,7 @@ export class Game {
       const dt = this.lastTime ? Math.min(0.05, (timestamp - this.lastTime) / 1000) : 0;
       this.lastTime = timestamp;
       this.time += dt;
+      this.dt = dt;
       if (this.started) this.update(dt);
       this.renderer.render(this);
       this.input.endFrame();
@@ -57,6 +62,9 @@ export class Game {
     this.saveTimer = 0;
     this.attackCooldown = 0;
     this.gatherCooldown = 0;
+    this.hitStop = 0;
+    this.fade = 0.4;
+    this.renderer.snapCamera();
     this.input.reset();
     this.ui.closeMenu();
     this.ui.hideDialogue();
@@ -86,6 +94,8 @@ export class Game {
       this.dialogue = null;
       this.started = true;
       this.saveTimer = 0;
+      this.fade = 0.4;
+      this.renderer.snapCamera();
       this.input.reset();
       this.ui.closeMenu();
       this.ui.hideDialogue();
@@ -115,11 +125,19 @@ export class Game {
   }
 
   update(dt) {
+    if (this.hitStop > 0) {
+      this.hitStop = Math.max(0, this.hitStop - dt);
+      this.updateHud(dt);
+      return;
+    }
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.gatherCooldown = Math.max(0, this.gatherCooldown - dt);
     this.player.hurtFlash = Math.max(0, this.player.hurtFlash - dt);
     this.player.invulnTime = Math.max(0, this.player.invulnTime - dt);
     this.player.shieldTime = Math.max(0, this.player.shieldTime - dt);
+    this.player.attackAnim = Math.max(0, (this.player.attackAnim || 0) - dt * 7);
+    this.bumpCooldown = Math.max(0, (this.bumpCooldown || 0) - dt);
+    this.fade = Math.max(0, this.fade - dt);
     Object.keys(this.player.skillCooldowns).forEach(id => {
       this.player.skillCooldowns[id] = Math.max(0, this.player.skillCooldowns[id] - dt);
     });
@@ -175,7 +193,7 @@ export class Game {
       if (pressed.has('space') || pressed.has('e')) this.advanceDialogue();
       return;
     }
-    if (pressed.has('space')) this.tryAttack();
+    if (this.input.keys.has('space')) this.tryAttack();
     if (pressed.has('e')) this.interact();
     if (pressed.has('f')) this.gather();
     Object.entries(SKILL_KEYS).forEach(([key, skill]) => {
@@ -199,6 +217,7 @@ export class Game {
         p.x = p.targetX;
         p.y = p.targetY;
         p.moving = false;
+        sfx.step();
         this.checkPortal();
       } else {
         p.px += ((p.targetPx - p.px) / remain) * step;
@@ -224,6 +243,9 @@ export class Game {
         this.player.targetPy = ny;
         this.player.moving = true;
         this.player.animFrame++;
+      } else if (this.bumpCooldown <= 0) {
+        this.bumpCooldown = 0.42;
+        sfx.step();
       }
     }
   }
@@ -235,6 +257,9 @@ export class Game {
     this.player.setTile(portal.toX, portal.toY);
     this.player.mapId = this.world.currentMapId;
     this.effects = [];
+    this.fade = 0.38;
+    this.renderer.snapCamera();
+    sfx.portal();
     this.ui.toast(`来到 ${this.world.map.name}`);
     this.ui.log(`进入${this.world.map.name}`);
     this.save();
@@ -264,11 +289,13 @@ export class Game {
 
   tryAttack() {
     if (this.attackCooldown > 0) return;
-    this.attackCooldown = 0.32;
     const target = this.findAdjacentEnemy();
-    const effectPos = target || { px: this.player.px, py: this.player.py };
-    this.addEffect({ type: 'slash', x: effectPos.px, y: effectPos.py, color: '#fff0ad', duration: 0.24 });
-    if (!playerAttack(this, target)) this.ui.toast('附近没有可攻击的敌人');
+    this.attackCooldown = 0.26;
+    this.player.attackAnim = 1;
+    sfx.swing();
+    if (!target) return;
+    this.addEffect({ type: 'slash', x: target.px, y: target.py, color: '#fff0ad', duration: 0.22 });
+    playerAttack(this, target);
   }
 
   useActiveSkill(id) {
@@ -296,14 +323,18 @@ export class Game {
       const healed = this.player.heal(50);
       this.addEffect({ type: 'text', x: this.player.px, y: this.player.py, text: `+${Math.round(healed)}`, color: '#72ef8b', duration: 0.8 });
       this.ui.log(`治愈术恢复 ${Math.round(healed)} 点生命`, 'good');
+      sfx.heal();
       success = true;
     } else if (id === 'shield') {
       this.player.shieldTime = 5;
       this.ui.log('护盾展开：受到伤害降低 50%', 'good');
+      sfx.shield();
       success = true;
     } else if (id === 'power_strike') success = powerStrike(this, this.findAdjacentEnemy());
-    else if (id === 'fireball') success = fireball(this, this.findNearestEnemy(7));
-    else if (id === 'whirlwind') success = whirlwind(this);
+    else if (id === 'fireball') {
+      sfx.fire();
+      success = fireball(this, this.findNearestEnemy(7));
+    } else if (id === 'whirlwind') success = whirlwind(this);
 
     if (!success) {
       this.ui.toast('技能范围内没有敌人');
@@ -316,9 +347,19 @@ export class Game {
 
   hitEnemy(enemy, damage, label = '攻击', color = '#ffe085') {
     if (!enemy || enemy.dead) return;
+    const crit = label === '暴击';
     const actual = enemy.takeDamage(damage);
-    this.addEffect({ type: 'text', x: enemy.px, y: enemy.py, text: `${label === '暴击' ? '暴击 ' : ''}-${actual}`, color, duration: 0.75 });
-    this.ui.log(`${label}：对${enemy.name}造成 ${actual} 点伤害`, label === '暴击' ? 'crit' : 'info');
+    this.addEffect({ type: 'text', x: enemy.px, y: enemy.py, text: `${crit ? '暴击 ' : ''}-${actual}`, color, duration: 0.75 });
+    this.ui.log(`${label}：对${enemy.name}造成 ${actual} 点伤害`, crit ? 'crit' : 'info');
+    if (crit) {
+      sfx.crit();
+      this.renderer.shake(7, 0.2);
+      this.hitStop = 0.07;
+    } else {
+      sfx.hit();
+      this.renderer.shake(3.5, 0.12);
+      this.hitStop = 0.045;
+    }
     if (enemy.dead) this.onEnemyKilled(enemy);
   }
 
@@ -329,6 +370,10 @@ export class Game {
     const levels = this.player.gainXp(enemy.xp);
     this.player.gainSkillXp('attack', Math.max(4, Math.round(enemy.xp / 4)));
     this.quests.onKill(enemy.type);
+    sfx.kill();
+    this.renderer.shake(5, 0.18);
+    this.addEffect({ type: 'burst', x: enemy.px, y: enemy.py, color: '#ffd77a', duration: 0.4 });
+    this.addEffect({ type: 'text', x: enemy.px, y: enemy.py - 0.4, text: `+${loot.gold}G`, color: '#f2cf6c', duration: 0.9 });
     this.ui.log(`击败${enemy.name}，获得 ${enemy.xp} 经验、${loot.gold} 金币`, 'good');
     if (levels) this.onLevelUp(levels);
     if (enemy.boss) this.ui.toast('巨龙已被击败！你成为了屠龙勇士！', 'good');
@@ -336,6 +381,8 @@ export class Game {
 
   onLevelUp(levels) {
     this.ui.toast(`升级！当前等级 ${this.player.level}，生命与法力已恢复`, 'good');
+    sfx.levelup();
+    this.addEffect({ type: 'burst', x: this.player.px, y: this.player.py, color: '#ffe08a', duration: 0.6 });
     Object.entries(ACTIVE_SKILLS).forEach(([id, skill]) => {
       if (this.player.level - levels < skill.unlock && this.player.level >= skill.unlock) this.ui.toast(`解锁技能：${skill.name}`, 'good');
     });
@@ -349,10 +396,14 @@ export class Game {
     this.addEffect({ type: 'text', x: this.player.px, y: this.player.py, text: `-${actual}`, color: '#ff6878', duration: 0.75 });
     this.ui.log(`${enemy.name}对你造成 ${actual} 点伤害`, 'bad');
     this.player.gainSkillXp('defense', 2);
+    sfx.hurt();
+    this.renderer.shake(7, 0.22);
+    this.hitStop = 0.06;
     if (this.player.dead) {
       this.player.moving = false;
       this.deathTimer = 1.5;
       this.input.reset();
+      sfx.death();
       this.ui.toast('你倒下了……即将返回黎明村', 'bad');
     }
   }
@@ -366,6 +417,8 @@ export class Game {
     this.player.hp = this.player.maxHp;
     this.player.mp = this.player.maxMp;
     this.player.invulnTime = 2;
+    this.fade = 0.45;
+    this.renderer.snapCamera();
     this.ui.closeMenu();
     this.closeDialogue();
     this.ui.toast(`已在村庄复活${lost ? `，损失 ${lost} 金币` : ''}`);
@@ -451,6 +504,8 @@ export class Game {
         this.world.scheduleTileRespawn(target.x, target.y, target.tile);
       }
     }
+    sfx.gather();
+    this.renderer.shake(2, 0.1);
     this.save();
   }
 
@@ -471,6 +526,7 @@ export class Game {
   startDialogue(npc) {
     if (this.player.moving) return;
     this.dialogue = { npc, stage: 0 };
+    sfx.menu();
     this.ui.showDialogue(npc.name, npc.dialog);
   }
 
@@ -529,6 +585,8 @@ export class Game {
       const picked = this.world.pickupItemDrop(drop.uid);
       if (!picked) continue;
       this.player.addItem(picked.id, picked.qty);
+      sfx.pickup();
+      this.addEffect({ type: 'text', x: picked.x, y: picked.y, text: `+${picked.qty} ${ITEMS[picked.id].name}`, color: '#9ef0b0', duration: 0.8 });
       this.ui.toast(`拾取 ${ITEMS[picked.id].name} × ${picked.qty}`, 'good');
     }
   }
@@ -542,6 +600,9 @@ export class Game {
 
   useItem(id) {
     if (this.player.useItem(id)) {
+      const item = ITEMS[id];
+      if (item.heal || item.mana) sfx.heal();
+      else sfx.pickup();
       this.ui.toast(`使用了${ITEMS[id].name}`, 'good');
       this.ui.refreshMenu();
       this.save();
@@ -550,6 +611,7 @@ export class Game {
 
   equipItem(id) {
     if (this.player.equip(id)) {
+      sfx.menu();
       this.ui.toast(`已装备${ITEMS[id].name}`, 'good');
       this.ui.refreshMenu();
       this.save();
@@ -571,6 +633,7 @@ export class Game {
     }
     this.player.gold -= item.price;
     this.player.addItem(id, 1);
+    sfx.coin();
     this.ui.toast(`购买${item.name} × 1`, 'good');
     this.ui.refreshMenu();
     this.save();
@@ -582,6 +645,7 @@ export class Game {
     const price = Math.max(1, Math.floor(item.price * 0.5));
     this.player.removeItem(id, 1);
     this.player.gold += price;
+    sfx.coin();
     this.ui.toast(`出售${item.name}，获得 ${price} 金币`, 'good');
     this.ui.refreshMenu();
     this.save();
@@ -601,6 +665,7 @@ export class Game {
     Object.entries(recipe.mats).forEach(([id, qty]) => this.player.removeItem(id, qty));
     this.player.addItem(recipe.out, recipe.outQty);
     const levels = this.player.gainSkillXp(recipe.skill, 20 + recipe.lv * 2);
+    sfx.gather();
     this.ui.toast(`制作成功：${recipe.name} × ${recipe.outQty}`, 'good');
     if (levels) this.ui.toast('制作技能升级！', 'good');
     this.ui.refreshMenu();

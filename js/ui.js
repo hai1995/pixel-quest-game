@@ -1,5 +1,6 @@
 import { ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, SHOP_ITEMS, SKILL_DEFS } from './data.js';
 import { skillXpForLevel } from './utils.js';
+import { sfx } from './audio.js';
 
 const menuShell = (title, body) => `
   <header class="menu-header"><h2>${title}</h2><button class="menu-close" aria-label="关闭">✕</button></header>
@@ -85,13 +86,17 @@ export class UI {
   openMenu(type, data = null) {
     this.currentMenu = type;
     this.menuData = data;
+    sfx.menu();
     this.renderMenu();
     this.overlay.classList.remove('hidden');
     this.game.input.vjoy.x = 0;
     this.game.input.vjoy.y = 0;
+    this.game.input.keys.clear();
   }
 
   closeMenu() {
+    if (!this.currentMenu) return;
+    sfx.menu();
     this.currentMenu = null;
     this.menuData = null;
     this.overlay.classList.add('hidden');

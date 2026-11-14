@@ -1,5 +1,6 @@
 import { Game } from './game.js';
 import { initMobile } from './mobile.js';
+import { unlockAudio } from './audio.js';
 
 const canvas = document.getElementById('game');
 const gameWrap = document.getElementById('game-wrap');
@@ -15,6 +16,10 @@ function fitViewport() {
 fitViewport();
 window.addEventListener('resize', fitViewport);
 window.addEventListener('orientationchange', () => setTimeout(fitViewport, 120));
+
+['pointerdown', 'keydown', 'touchstart'].forEach(type => {
+  window.addEventListener(type, unlockAudio, { once: true, passive: true });
+});
 
 document.getElementById('btn-new').addEventListener('click', () => game.newGame());
 const continueButton = document.getElementById('btn-continue');

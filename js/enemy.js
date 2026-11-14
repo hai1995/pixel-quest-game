@@ -28,6 +28,7 @@ export class Enemy {
     this.moving = false;
     this.moveSpeed = this.boss ? 1.65 : type === 'wolf' ? 2.7 : 2.05;
     this.attackCooldown = randf(0, 0.6);
+    this.windup = 0;
     this.wanderCooldown = randf(0.5, 2.5);
     this.hitFlash = 0;
     this.animFrame = 0;
@@ -81,12 +82,22 @@ export class Enemy {
     if (!player.dead && distance <= aggro) {
       this.state = distance <= 1 ? 'attack' : 'chase';
       if (distance <= 1) {
-        if (this.attackCooldown <= 0) {
-          game.damagePlayer(this.atk, this);
-          this.attackCooldown = this.boss ? 1.25 : 1.05;
+        this.dir = Math.abs(player.x - this.x) > Math.abs(player.y - this.y)
+          ? (player.x > this.x ? 'right' : 'left')
+          : (player.y > this.y ? 'down' : 'up');
+        if (this.windup > 0) {
+          this.windup -= dt;
+          if (this.windup <= 0) {
+            this.windup = 0;
+            if (distCheb(this, player) <= 1 && !player.dead) game.damagePlayer(this.atk, this);
+            this.attackCooldown = this.boss ? 1.35 : 1.15;
+          }
+          return;
         }
+        if (this.attackCooldown <= 0) this.windup = this.boss ? 0.42 : 0.3;
         return;
       }
+      this.windup = 0;
 
       const dx = player.x - this.x;
       const dy = player.y - this.y;
@@ -101,6 +112,7 @@ export class Enemy {
     }
 
     this.state = 'idle';
+    this.windup = 0;
     if (this.wanderCooldown <= 0) {
       this.wanderCooldown = randf(1.4, 3.8);
       if (!this.boss && Math.random() < 0.65) {

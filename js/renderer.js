@@ -11,6 +11,9 @@ export class Renderer {
     this.viewTilesY = 14;
     this.cameraX = 0;
     this.cameraY = 0;
+    this.cameraSnap = true;
+    this.shakeTime = 0;
+    this.shakePower = 0;
     this.ctx.imageSmoothingEnabled = false;
   }
 
@@ -26,15 +29,36 @@ export class Renderer {
     this.ctx.imageSmoothingEnabled = false;
   }
 
-  updateCamera(game) {
+  shake(power = 4, duration = 0.16) {
+    this.shakePower = Math.max(this.shakePower, power);
+    this.shakeTime = Math.max(this.shakeTime, duration);
+  }
+
+  snapCamera() {
+    this.cameraSnap = true;
+  }
+
+  updateCamera(game, dt) {
     const maxX = Math.max(0, game.world.width - this.viewTilesX);
     const maxY = Math.max(0, game.world.height - this.viewTilesY);
-    this.cameraX = game.world.width < this.viewTilesX
+    const targetX = game.world.width < this.viewTilesX
       ? (game.world.width - this.viewTilesX) / 2
       : clamp(game.player.px + 0.5 - this.viewTilesX / 2, 0, maxX);
-    this.cameraY = game.world.height < this.viewTilesY
+    const targetY = game.world.height < this.viewTilesY
       ? (game.world.height - this.viewTilesY) / 2
       : clamp(game.player.py + 0.5 - this.viewTilesY / 2, 0, maxY);
+
+    if (this.cameraSnap) {
+      this.cameraX = targetX;
+      this.cameraY = targetY;
+      this.cameraSnap = false;
+      return;
+    }
+    const k = Math.min(1, dt * 11);
+    this.cameraX += (targetX - this.cameraX) * k;
+    this.cameraY += (targetY - this.cameraY) * k;
+    if (Math.abs(targetX - this.cameraX) < 0.004) this.cameraX = targetX;
+    if (Math.abs(targetY - this.cameraY) < 0.004) this.cameraY = targetY;
   }
 
   screenX(tileX) {
@@ -47,10 +71,24 @@ export class Renderer {
 
   render(game) {
     const { ctx, canvas, tileSize } = this;
-    this.updateCamera(game);
+    const dt = game.dt || 0;
+    this.updateCamera(game, dt);
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#101720';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let shakeX = 0;
+    let shakeY = 0;
+    if (this.shakeTime > 0) {
+      this.shakeTime = Math.max(0, this.shakeTime - dt);
+      const falloff = Math.min(1, this.shakeTime / 0.16);
+      shakeX = (Math.random() * 2 - 1) * this.shakePower * falloff;
+      shakeY = (Math.random() * 2 - 1) * this.shakePower * falloff;
+      if (this.shakeTime === 0) this.shakePower = 0;
+    }
+
+    ctx.save();
+    ctx.translate(Math.round(shakeX), Math.round(shakeY));
 
     const startX = Math.max(0, Math.floor(this.cameraX) - 1);
     const endX = Math.min(game.world.width - 1, Math.ceil(this.cameraX + this.viewTilesX) + 1);
@@ -74,22 +112,39 @@ export class Renderer {
 
     for (const item of entities) {
       const entity = item.entity;
-      const ex = item.kind === 'npc' ? entity.x : entity.px;
-      const ey = item.kind === 'npc' ? entity.y : entity.py;
+      const isNpc = item.kind === 'npc';
+      const ex = isNpc ? entity.x : entity.px;
+      const ey = isNpc ? entity.y : entity.py;
       const x = this.screenX(ex);
       const y = this.screenY(ey);
-      if (item.kind === 'npc') {
+
+      if (isNpc) {
         drawNPC(ctx, entity, x, y, tileSize);
         if (Math.hypot(entity.x - game.player.px, entity.y - game.player.py) < 4) {
           ctx.font = `${Math.max(10, Math.round(tileSize * 0.24))}px sans-serif`;
           ctx.textAlign = 'center';
+          if (!entity._labelWidth) entity._labelWidth = ctx.measureText(entity.name).width;
           ctx.fillStyle = 'rgba(0,0,0,.65)';
-          ctx.fillRect(x + tileSize / 2 - ctx.measureText(entity.name).width / 2 - 4, y - tileSize * 0.43, ctx.measureText(entity.name).width + 8, tileSize * 0.32);
+          ctx.fillRect(x + tileSize / 2 - entity._labelWidth / 2 - 4, y - tileSize * 0.43, entity._labelWidth + 8, tileSize * 0.32);
           ctx.fillStyle = '#fff3c4';
           ctx.fillText(entity.name, x + tileSize / 2, y - tileSize * 0.19);
         }
       } else if (item.kind === 'enemy') {
         drawEnemy(ctx, entity, x, y, tileSize);
+        if (entity.windup > 0) {
+          const pulse = 0.5 + Math.sin(game.time * 30) * 0.3;
+          ctx.save();
+          ctx.strokeStyle = `rgba(255,110,90,${pulse})`;
+          ctx.lineWidth = Math.max(2, tileSize * 0.07);
+          ctx.beginPath();
+          ctx.arc(x + tileSize / 2, y + tileSize / 2, tileSize * 0.52, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = `rgba(255,200,120,${pulse})`;
+          ctx.font = `bold ${Math.round(tileSize * 0.5)}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText('!', x + tileSize / 2, y - tileSize * 0.06);
+          ctx.restore();
+        }
         if (entity.hp < entity.maxHp || entity.boss) {
           const width = tileSize * (entity.boss ? 1.25 : 0.85);
           const barX = x + (tileSize - width) / 2;
@@ -100,7 +155,10 @@ export class Renderer {
           ctx.fillRect(barX, barY, width * entity.hp / entity.maxHp, 4);
         }
       } else {
-        drawPlayer(ctx, entity, x, y, tileSize);
+        const lunge = (entity.attackAnim || 0) * tileSize * 0.18;
+        const lx = entity.dir === 'left' ? -lunge : entity.dir === 'right' ? lunge : 0;
+        const ly = entity.dir === 'up' ? -lunge : entity.dir === 'down' ? lunge : 0;
+        drawPlayer(ctx, entity, x + lx, y + ly, tileSize);
       }
     }
 
@@ -130,6 +188,25 @@ export class Renderer {
         ctx.fillText(effect.text, x + tileSize / 2, y - progress * tileSize);
         ctx.restore();
       }
+    }
+
+    ctx.restore();
+
+    const hpRatio = game.player.hp / game.player.maxHp;
+    if (hpRatio < 0.35 && !game.player.dead && game.started) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const pulse = 0.2 + Math.sin(game.time * 5) * 0.07 + (0.35 - hpRatio);
+      const gradient = ctx.createRadialGradient(cx, cy, Math.min(canvas.width, canvas.height) * 0.3, cx, cy, Math.max(canvas.width, canvas.height) * 0.72);
+      gradient.addColorStop(0, 'rgba(150,15,25,0)');
+      gradient.addColorStop(1, `rgba(150,15,25,${clamp(pulse, 0, 0.6)})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if (game.fade > 0) {
+      ctx.fillStyle = `rgba(6,9,14,${clamp(game.fade * 2.6, 0, 0.92)})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     const label = `${game.world.map.name}${game.world.map.safe ? ' · 安全区' : ''}`;
