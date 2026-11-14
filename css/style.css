@@ -189,12 +189,30 @@ body.touch-mode .start-help { display: flex !important; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media (max-width: 430px) and (orientation: portrait) {
-  #mobile-skills { bottom: calc(max(20px, env(safe-area-inset-bottom)) + 103px); }
-  #joystick { width: 106px; height: 106px; }
-  #action-buttons { right: max(13px, env(safe-area-inset-right)); }
-  #mobile-attack { width: 72px; height: 72px; }
-  body.touch-mode #combat-log { bottom: 208px; }
+@media (orientation: portrait) {
+  #mobile-topbar { top: max(6px, env(safe-area-inset-top)); gap: 4px; }
+  #mobile-topbar button { width: 36px; height: 34px; font-size: 12px; }
+  #mobile-hud { top: calc(max(6px, env(safe-area-inset-top)) + 40px); width: min(286px, 78%); gap: 6px; }
+  #mh-map { max-width: 68px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c6b382; }
+  #joystick { left: max(16px, env(safe-area-inset-left)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px); width: 104px; height: 104px; }
+  #joystick-knob { width: 46px; height: 46px; margin: -23px; }
+  #action-buttons { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px); gap: 8px; }
+  #mobile-attack { width: 74px; height: 74px; font-size: 14px; }
+  .utility-actions button { width: 52px; height: 39px; font-size: 10px; }
+  #mobile-skills { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 130px); gap: 6px; }
+  #mobile-skills button { width: 44px; height: 46px; }
+  #mobile-skills .skill-glyph { font-size: 17px; }
+  body.touch-mode #combat-log { display: none; }
+  body.touch-mode #dialogue-box { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 190px); width: calc(100% - 24px); }
+  body.touch-mode #toast-layer { top: calc(max(6px, env(safe-area-inset-top)) + 76px); }
+  body.touch-mode #menu-overlay { padding: calc(max(6px, env(safe-area-inset-top)) + 42px) 8px calc(max(8px, env(safe-area-inset-bottom)) + 8px); }
+  body.touch-mode #menu-window { width: 100%; }
+  body.touch-mode .menu-body { padding: 10px; }
+  body.touch-mode .start-card { width: calc(100% - 24px); padding: 22px 16px 18px; }
+  body.touch-mode .start-card h1 { font-size: 32px; letter-spacing: 3px; }
+  body.touch-mode .start-subtitle { font-size: 10px; }
+  body.touch-mode .start-help { gap: 4px; margin: 14px 0 8px; }
+  body.touch-mode .start-actions .pixel-btn { min-height: 46px; }
 }
 
 @media (orientation: landscape) and (max-height: 540px) {

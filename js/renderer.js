@@ -90,13 +90,15 @@ export class Renderer {
     ctx.save();
     ctx.translate(Math.round(shakeX), Math.round(shakeY));
 
-    const startX = Math.max(0, Math.floor(this.cameraX) - 1);
-    const endX = Math.min(game.world.width - 1, Math.ceil(this.cameraX + this.viewTilesX) + 1);
-    const startY = Math.max(0, Math.floor(this.cameraY) - 1);
-    const endY = Math.min(game.world.height - 1, Math.ceil(this.cameraY + this.viewTilesY) + 1);
+    const startX = Math.floor(this.cameraX) - 1;
+    const endX = Math.ceil(this.cameraX + this.viewTilesX) + 1;
+    const startY = Math.floor(this.cameraY) - 1;
+    const endY = Math.ceil(this.cameraY + this.viewTilesY) + 1;
     for (let y = startY; y <= endY; y++) {
+      const ty = clamp(y, 0, game.world.height - 1);
       for (let x = startX; x <= endX; x++) {
-        drawTile(ctx, game.world.getTile(x, y), this.screenX(x), this.screenY(y), tileSize, x, y, game.time);
+        const tx = clamp(x, 0, game.world.width - 1);
+        drawTile(ctx, game.world.getTile(tx, ty), this.screenX(x), this.screenY(y), tileSize, tx, ty, game.time);
       }
     }
 
@@ -192,6 +194,8 @@ export class Renderer {
 
     ctx.restore();
 
+    this.drawOffscreenMarkers(game);
+
     const hpRatio = game.player.hp / game.player.maxHp;
     if (hpRatio < 0.35 && !game.player.dead && game.started) {
       const cx = canvas.width / 2;
@@ -209,6 +213,8 @@ export class Renderer {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    const touch = document.body.classList.contains('touch-mode');
+    if (touch) return;
     const label = `${game.world.map.name}${game.world.map.safe ? ' · 安全区' : ''}`;
     ctx.font = 'bold 13px monospace';
     const labelWidth = ctx.measureText(label).width + 22;
@@ -219,5 +225,34 @@ export class Renderer {
     ctx.fillStyle = '#f5dfa2';
     ctx.textAlign = 'left';
     ctx.fillText(label, 23, 32);
+  }
+
+  drawOffscreenMarkers(game) {
+    if (!game.started || game.player.dead || game.world.map.safe) return;
+    const { ctx, canvas, tileSize } = this;
+    const margin = 26;
+    for (const enemy of game.world.enemies) {
+      if (enemy.dead) continue;
+      if (Math.hypot(enemy.px - game.player.px, enemy.py - game.player.py) > 8) continue;
+      const sx = (enemy.px - this.cameraX) * tileSize + tileSize / 2;
+      const sy = (enemy.py - this.cameraY) * tileSize + tileSize / 2;
+      if (sx > margin && sx < canvas.width - margin && sy > margin && sy < canvas.height - margin) continue;
+      const angle = Math.atan2(sy - canvas.height / 2, sx - canvas.width / 2);
+      const x = clamp(sx, margin, canvas.width - margin);
+      const y = clamp(sy, margin, canvas.height - margin);
+      const alpha = clamp(0.42 + Math.sin(game.time * 6) * 0.16, 0.22, 0.68);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = enemy.boss ? '#ffb14a' : '#e86565';
+      ctx.beginPath();
+      ctx.moveTo(10, 0);
+      ctx.lineTo(-7, 6.5);
+      ctx.lineTo(-7, -6.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }

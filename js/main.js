@@ -8,9 +8,15 @@ const game = new Game(canvas);
 initMobile(game);
 
 function fitViewport() {
-  const tileSize = document.body.classList.contains('touch-mode') ? 36 : 48;
+  const touch = document.body.classList.contains('touch-mode');
   const rect = gameWrap.getBoundingClientRect();
-  game.renderer.setViewport(rect.width || window.innerWidth, rect.height || window.innerHeight, tileSize);
+  const width = rect.width || window.innerWidth;
+  const height = rect.height || window.innerHeight;
+  const portrait = height >= width;
+  const tileSize = touch
+    ? (portrait ? Math.min(48, Math.max(36, Math.round(height / 22))) : 36)
+    : 48;
+  game.renderer.setViewport(width, height, tileSize);
 }
 
 fitViewport();
