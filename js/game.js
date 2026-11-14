@@ -1,4 +1,4 @@
-import { ACTIVE_SKILLS, AUTO_MODES, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
+import { ACHIEVEMENTS, ACTIVE_SKILLS, AUTO_MODES, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
 import { Input } from './input.js';
 import { Player } from './player.js';
 import { World } from './world.js';
@@ -17,6 +17,11 @@ const GATHER_TOOLS = {
 const SAVE_KEY = 'pixel-quest-save';
 const SKILL_KEYS = { '1': 'heal', '2': 'power_strike', '3': 'fireball', '4': 'whirlwind', '5': 'shield' };
 const SKILL_COOLDOWNS = { heal: 6, power_strike: 2.5, fireball: 3, whirlwind: 5, shield: 10 };
+
+const defaultStats = () => ({
+  kills: 0, elites: 0, bosses: 0, wood: 0, ore: 0, fish: 0,
+  chests: 0, quests: 0, deaths: 0, goldEarned: 0, playtime: 0, maps: [],
+});
 
 export class Game {
   constructor(canvas) {
@@ -67,6 +72,9 @@ export class Game {
     this.dt = 0;
     this.dialogue = null;
     this.contactNpc = null;
+    this.stats = defaultStats();
+    this.achievements = [];
+    this.achievementTimer = 0;
     this.syncPlayerToSpawn();
     this.ui = new UI(this);
   }
@@ -93,6 +101,10 @@ export class Game {
     this.effects = [];
     this.dialogue = null;
     this.contactNpc = null;
+    this.stats = defaultStats();
+    this.stats.maps.push('town');
+    this.achievements = [];
+    this.achievementTimer = 0;
     this.started = true;
     this.saveTimer = 0;
     this.attackCooldown = 0;
@@ -139,6 +151,11 @@ export class Game {
       if (!this.world.isWalkable(this.player.x, this.player.y, this.player)) this.syncPlayerToSpawn();
       else this.player.setTile(this.player.x, this.player.y);
       this.player.mapId = this.world.currentMapId;
+      this.stats = { ...defaultStats(), ...(save.stats && typeof save.stats === 'object' ? save.stats : {}) };
+      this.stats.maps = Array.isArray(save.stats?.maps) ? [...new Set(save.stats.maps.filter(id => MAPS[id]))] : [];
+      this.achievements = Array.isArray(save.achievements) ? save.achievements.filter(id => ACHIEVEMENTS[id]) : [];
+      this.achievementTimer = 0;
+      this.trackMap();
       this.effects = [];
       this.dialogue = null;
       this.contactNpc = null;
@@ -177,7 +194,7 @@ export class Game {
   save() {
     if (!this.started || this.player.dead) return;
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, auto: this.auto, autoMode: this.autoMode, player: this.player.toSave(), quests: this.quests.toSave(), savedAt: Date.now() }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 2, auto: this.auto, autoMode: this.autoMode, player: this.player.toSave(), quests: this.quests.toSave(), stats: this.stats, achievements: this.achievements, savedAt: Date.now() }));
     } catch (error) {
       console.warn('Unable to save game:', error);
     }
@@ -206,6 +223,13 @@ export class Game {
     this.autoManaCooldown = Math.max(0, this.autoManaCooldown - dt);
     this.autoShopCooldown = Math.max(0, this.autoShopCooldown - dt);
     this.fade = Math.max(0, this.fade - dt);
+    this.stats.playtime += dt;
+    this.trackMap();
+    this.achievementTimer += dt;
+    if (this.achievementTimer >= 1) {
+      this.achievementTimer = 0;
+      this.checkAchievements();
+    }
     Object.keys(this.player.skillCooldowns).forEach(id => {
       this.player.skillCooldowns[id] = Math.max(0, this.player.skillCooldowns[id] - dt);
     });
@@ -288,7 +312,7 @@ export class Game {
       return;
     }
 
-    const menuKeys = { i: 'inventory', b: 'inventory', k: 'skills', c: 'character', q: 'quests', m: 'map' };
+    const menuKeys = { i: 'inventory', b: 'inventory', k: 'skills', c: 'character', q: 'quests', m: 'map', h: 'achievements' };
     for (const [key, menu] of Object.entries(menuKeys)) {
       if (pressed.has(key)) this.toggleMenu(menu);
     }
@@ -1722,6 +1746,10 @@ export class Game {
   onEnemyKilled(enemy) {
     const loot = enemy.dropLoot();
     this.player.gold += loot.gold;
+    this.stats.kills += 1;
+    if (enemy.elite) this.stats.elites += 1;
+    if (enemy.boss) this.stats.bosses += 1;
+    this.stats.goldEarned += loot.gold;
     loot.items.forEach(item => this.world.addItemDrop(item.id, item.qty, enemy.x, enemy.y));
     const levels = this.player.gainXp(enemy.xp);
     this.player.gainSkillXp('attack', Math.max(4, Math.round(enemy.xp / 4)));
@@ -1733,6 +1761,49 @@ export class Game {
     this.ui.log(`击败${enemy.name}，获得 ${enemy.xp} 经验、${loot.gold} 金币`, 'good');
     if (levels) this.onLevelUp(levels);
     if (enemy.boss) this.ui.toast('巨龙已被击败！你成为了屠龙勇士！', 'good');
+    this.checkAchievements();
+  }
+
+  trackMap() {
+    const id = this.world.currentMapId;
+    if (id && !this.stats.maps.includes(id)) this.stats.maps.push(id);
+  }
+
+  statValue(stat) {
+    if (stat === 'level') return this.player.level;
+    if (stat === 'maps') return this.stats.maps.length;
+    return this.stats[stat] || 0;
+  }
+
+  checkAchievements() {
+    if (!this.ui || !this.stats) return;
+    Object.entries(ACHIEVEMENTS).forEach(([id, def]) => {
+      if (this.achievements.includes(id)) return;
+      if (this.statValue(def.stat) < def.target) return;
+      this.unlockAchievement(id, def);
+    });
+  }
+
+  unlockAchievement(id, def) {
+    this.achievements.push(id);
+    const reward = def.reward || {};
+    if (reward.gold) {
+      this.player.gold += reward.gold;
+      this.stats.goldEarned += reward.gold;
+    }
+    if (reward.xp) {
+      const levels = this.player.gainXp(reward.xp);
+      if (levels) this.onLevelUp(levels);
+    }
+    Object.entries(reward.items || {}).forEach(([itemId, qty]) => this.player.addItem(itemId, qty));
+    const parts = [];
+    if (reward.gold) parts.push(`${reward.gold} 金币`);
+    if (reward.xp) parts.push(`${reward.xp} 经验`);
+    Object.entries(reward.items || {}).forEach(([itemId, qty]) => parts.push(`${ITEMS[itemId].name}×${qty}`));
+    this.ui.toast(`成就解锁：${def.name}`, 'good');
+    this.ui.log(`🏆 成就解锁：${def.name}（${parts.join('、') || '荣誉'}）`, 'good');
+    sfx.levelup();
+    this.save();
   }
 
   onLevelUp(levels) {
@@ -1757,6 +1828,7 @@ export class Game {
     this.hitStop = 0.06;
     if (this.player.dead) {
       this.player.moving = false;
+      this.stats.deaths += 1;
       this.deathTimer = 1.5;
       this.input.reset();
       sfx.death();
@@ -1854,6 +1926,8 @@ export class Game {
       if (tier >= 3) loot.push(['gold_ore', 1]);
       if (tier >= 4) loot.push(['fire_core', 1]);
       this.player.gold += gold;
+      this.stats.chests += 1;
+      this.stats.goldEarned += gold;
       loot.forEach(([id, qty]) => this.player.addItem(id, qty));
       const restore = { beach: TILE.SAND, cave: TILE.FLOOR, dungeon: TILE.FLOOR, volcano: TILE.FLOOR }[mapId] || TILE.GRASS;
       this.world.setTile(target.x, target.y, restore);
@@ -1861,6 +1935,9 @@ export class Game {
       this.ui.toast(`打开宝箱：${gold} 金币、${names}`, 'good');
     } else {
       this.player.addItem(itemId, 1);
+      if (itemId === 'wood') this.stats.wood += 1;
+      else if (itemId === 'fish') this.stats.fish += 1;
+      else this.stats.ore += 1;
       const levels = this.player.gainSkillXp(skillId, xp);
       this.quests.onGather(itemId, 1);
       this.addEffect({ type: 'text', x: target.x, y: target.y, text: `+1 ${ITEMS[itemId].name}`, color: '#8fe69a', duration: 0.85 });
@@ -1875,6 +1952,7 @@ export class Game {
     sfx.gather();
     this.renderer.shake(2, 0.1);
     if (this.auto) this.autoRestoreWeapon();
+    this.checkAchievements();
     this.save();
   }
 
@@ -1921,6 +1999,8 @@ export class Game {
       if (this.quests.isComplete(npc.quest)) {
         const levelBefore = this.player.level;
         const reward = this.quests.turnIn(npc.quest);
+        this.stats.quests += 1;
+        this.stats.goldEarned += reward.gold || 0;
         const rewardItems = Object.entries(reward.items || {})
           .map(([id, qty]) => `${ITEMS[id].name}×${qty}`)
           .join('、');
@@ -1928,6 +2008,7 @@ export class Game {
         this.ui.showDialogue(npc.name, `做得好！这是你的奖励：${reward.gold || 0} 金币、${reward.xp || 0} 经验${rewardItems ? `、${rewardItems}` : ''}。`);
         this.ui.toast(`完成任务：${quest.name}`, 'good');
         if (this.player.level > levelBefore) this.onLevelUp(this.player.level - levelBefore);
+        this.checkAchievements();
         this.save();
         return;
       }

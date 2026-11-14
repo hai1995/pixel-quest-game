@@ -379,6 +379,23 @@ export const QUESTS = {
   q_volcano: { name: '熔岩的试炼', desc: '击败8只火焰元素', type: 'kill', target: 'fire_elemental', qty: 8, reward: { gold: 600, xp: 1500, items: { flame_sword: 1 } } },
 };
 
+// 成就定义
+export const ACHIEVEMENTS = {
+  first_blood: { name: '初露锋芒', desc: '击败第一个敌人', stat: 'kills', target: 1, reward: { gold: 30, xp: 20 } },
+  hunter_50: { name: '狩猎好手', desc: '累计击败 50 个敌人', stat: 'kills', target: 50, reward: { gold: 200, xp: 300, items: { hp_potion: 2 } } },
+  hunter_200: { name: '百战老兵', desc: '累计击败 200 个敌人', stat: 'kills', target: 200, reward: { gold: 800, xp: 1200, items: { iron_ore: 3 } } },
+  elite_10: { name: '精英克星', desc: '击败 10 只精英怪', stat: 'elites', target: 10, reward: { gold: 400, xp: 600, items: { gold_ore: 2 } } },
+  dragon_slayer: { name: '屠龙勇士', desc: '击败沉睡的巨龙', stat: 'bosses', target: 1, reward: { gold: 500, xp: 800 } },
+  wood_100: { name: '伐木能手', desc: '累计砍伐 100 次', stat: 'wood', target: 100, reward: { gold: 150, xp: 200, items: { wood: 10 } } },
+  ore_100: { name: '矿脉探索者', desc: '累计采矿 100 次', stat: 'ore', target: 100, reward: { gold: 250, xp: 300, items: { iron_ore: 5 } } },
+  fish_50: { name: '垂钓大师', desc: '累计钓鱼 50 次', stat: 'fish', target: 50, reward: { gold: 200, xp: 250, items: { cooked_fish: 5 } } },
+  chest_10: { name: '宝箱猎人', desc: '打开 10 个宝箱', stat: 'chests', target: 10, reward: { gold: 300, xp: 350 } },
+  quest_20: { name: '任务达人', desc: '累计完成 20 个任务', stat: 'quests', target: 20, reward: { gold: 500, xp: 800 } },
+  level_20: { name: '成长之路', desc: '达到 20 级', stat: 'level', target: 20, reward: { gold: 600, items: { gold_ring: 1 } } },
+  explorer_all: { name: '世界旅人', desc: '探索全部 6 张地图', stat: 'maps', target: 6, reward: { gold: 700, xp: 900 } },
+  gold_5000: { name: '富甲一方', desc: '累计获得 5000 金币', stat: 'goldEarned', target: 5000, reward: { gold: 500, xp: 500, items: { gold_ore: 3 } } },
+};
+
 // 商店物品
 export const SHOP_ITEMS = [
   'hp_potion', 'mp_potion', 'bread', 'cooked_fish',

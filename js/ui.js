@@ -1,4 +1,4 @@
-import { ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, SHOP_ITEMS, SKILL_DEFS } from './data.js';
+import { ACHIEVEMENTS, ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, SHOP_ITEMS, SKILL_DEFS } from './data.js';
 import { skillXpForLevel } from './utils.js';
 import { sfx } from './audio.js';
 
@@ -114,6 +114,7 @@ export class UI {
       case 'map': this.renderMap(); break;
       case 'craft': this.renderCraft(); break;
       case 'shop': this.renderShop(); break;
+      case 'achievements': this.renderAchievements(); break;
       default: return;
     }
     this.bindCloseButton();
@@ -202,6 +203,46 @@ export class UI {
       return `<article class="shop-row"><span class="item-icon">${item.icon}</span><div><strong>${item.name} × ${qty}</strong><small>出售 1 个</small></div><b>${price} G</b><button class="pixel-btn small secondary" data-action="sell" data-id="${id}">出售</button></article>`;
     }).join('') : '<p class="empty">没有可出售的物品。</p>';
     this.window.innerHTML = menuShell('村庄商店', `<div class="shop-balance">持有金币：<b>${p.gold} G</b></div><h3 class="section-title">购买</h3>${stock}<h3 class="section-title">出售</h3>${sell}`);
+  }
+
+  renderAchievements() {
+    const game = this.game;
+    const unlocked = new Set(game.achievements);
+    const entries = Object.entries(ACHIEVEMENTS);
+    const cards = entries.map(([id, ach]) => {
+      const done = unlocked.has(id);
+      const value = game.statValue(ach.stat);
+      const pct = done ? 100 : Math.min(100, Math.round(value / ach.target * 100));
+      const reward = [];
+      if (ach.reward?.gold) reward.push(`${ach.reward.gold} 金币`);
+      if (ach.reward?.xp) reward.push(`${ach.reward.xp} 经验`);
+      Object.entries(ach.reward?.items || {}).forEach(([itemId, qty]) => reward.push(`${ITEMS[itemId]?.name || itemId}×${qty}`));
+      return `<article class="achievement-card ${done ? 'done' : ''}">
+        <div class="achievement-icon">${done ? '🏆' : '🔒'}</div>
+        <div class="achievement-info">
+          <strong>${ach.name}</strong>
+          <span>${ach.desc}</span>
+          <div class="mini-bar"><i style="width:${pct}%"></i></div>
+          <small>${done ? '已达成' : `${Math.min(value, ach.target)}/${ach.target}`} · 奖励：${reward.join('、') || '荣誉'}</small>
+        </div>
+        <b class="achievement-state">${done ? '已解锁' : '进行中'}</b>
+      </article>`;
+    }).join('');
+    const s = game.stats;
+    const time = s.playtime >= 3600
+      ? `${(s.playtime / 3600).toFixed(1)} 小时`
+      : `${Math.floor(s.playtime / 60)} 分 ${Math.floor(s.playtime % 60)} 秒`;
+    const stats = [
+      ['击杀敌人', s.kills], ['精英击杀', s.elites], ['首领取胜', s.bosses],
+      ['砍伐次数', s.wood], ['采矿次数', s.ore], ['钓鱼次数', s.fish],
+      ['开启宝箱', s.chests], ['完成任务', s.quests], ['倒下次数', s.deaths],
+      ['累计金币', s.goldEarned], ['探索地图', `${s.maps.length}/${Object.keys(MAPS).length}`], ['冒险时长', time],
+    ].map(([label, value]) => `<div>${label}<b>${value}</b></div>`).join('');
+    this.window.innerHTML = menuShell(`成就 ${unlocked.size}/${entries.length}`, `
+      <h3 class="section-title">冒险统计</h3>
+      <div class="stat-grid achievement-stats">${stats}</div>
+      <h3 class="section-title">成就勋章</h3>
+      <div class="achievement-list">${cards}</div>`);
   }
 
   showDialogue(name, text) {
