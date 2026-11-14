@@ -227,6 +227,21 @@ export class Renderer {
       }
     }
 
+    if (game.clickPath && game.clickPath.length > 1) {
+      const steps = Math.min(game.clickPath.length - 1, 40);
+      ctx.save();
+      for (let i = 1; i <= steps; i++) {
+        const step = game.clickPath[i];
+        if (!step) break;
+        const alpha = 0.5 * (1 - (i - 1) / Math.max(1, steps * 2));
+        ctx.fillStyle = `rgba(246,222,160,${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(this.screenX(step.x) + tileSize / 2, this.screenY(step.y) + tileSize / 2, Math.max(2.5, tileSize * 0.085), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     if (game.clickMarker) {
       const x = this.screenX(game.clickMarker.x);
       const y = this.screenY(game.clickMarker.y);

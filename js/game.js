@@ -60,6 +60,7 @@ export class Game {
     this.clickGoalKey = '';
     this.clickRepathCooldown = 0;
     this.clickAttackMisses = 0;
+    this.clickMoveMisses = 0;
     this.hoverTile = null;
     this.dt = 0;
     this.dialogue = null;
@@ -480,10 +481,18 @@ export class Game {
         this.clickRepathCooldown = 0.35;
         return;
       }
-      this.cancelClickMove();
-      this.ui.toast('前路被挡住了');
+      this.clickMoveMisses++;
+      if (this.clickMoveMisses > 2) {
+        this.cancelClickMove();
+        this.ui.toast('前路被挡住了');
+        return;
+      }
+      // 怪物可能临时挡路，重新规划一次而不是直接放弃
+      this.clickPath = null;
+      this.clickRepathCooldown = 0.3;
       return;
     }
+    this.clickMoveMisses = 0;
     this.clickPath.shift();
   }
 
@@ -513,6 +522,7 @@ export class Game {
     this.clickGoalKey = '';
     this.clickRepathCooldown = 0;
     this.clickAttackMisses = 0;
+    this.clickMoveMisses = 0;
   }
 
   hoverAt(clientX, clientY) {
