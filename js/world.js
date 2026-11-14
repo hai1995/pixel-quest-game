@@ -146,6 +146,12 @@ export class World {
     return true;
   }
 
+  isWalkableIgnoringEnemies(x, y) {
+    const tile = this.getTile(x, y);
+    if (!TILE_PROPS[tile]?.walk) return false;
+    return !this.npcs.some(npc => npc.x === x && npc.y === y);
+  }
+
   getFrontTile(player) {
     const dirs = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
     const [dx, dy] = dirs[player.dir] || dirs.down;

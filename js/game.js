@@ -45,6 +45,7 @@ export class Game {
     this.autoUnreachable = new Map();
     this.autoRoamTarget = null;
     this.autoRestocking = false;
+    this.autoRestockCooldown = 0;
     this.autoWeaponBeforeTool = null;
     this.pathCache = null;
     this.dt = 0;
@@ -352,6 +353,7 @@ export class Game {
     this.autoUnreachable.clear();
     this.autoRoamTarget = null;
     this.autoRestocking = false;
+    this.autoRestockCooldown = 0;
     this.syncAutoUI();
     sfx.menu();
     this.ui.toast(this.auto ? '自动动作已开启：战斗、采集、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
@@ -381,6 +383,7 @@ export class Game {
   runAuto(dt = 0) {
     if (!this.auto || this.player.dead) return;
     this.autoRepathCooldown = Math.max(0, this.autoRepathCooldown - dt);
+    this.autoRestockCooldown = Math.max(0, this.autoRestockCooldown - dt);
     this.tryAutoHeal();
     if (this.player.moving) return;
     if (this.world.map.safe) {
@@ -632,13 +635,13 @@ export class Game {
     return this.autoPathStep(drop.x, drop.y);
   }
 
-  autoPathStep(tx, ty) {
+  autoPathStep(tx, ty, ignoreEnemies = false) {
     if (this.player.moving || this.autoRepathCooldown > 0) return false;
-    const key = `${this.world.currentMapId}:${tx},${ty}`;
+    const key = `${this.world.currentMapId}:${tx},${ty}${ignoreEnemies ? ':free' : ''}`;
     let steps = this.pathCache && this.pathCache.key === key ? this.pathCache.steps : null;
     let index = steps ? steps.findIndex(step => step.x === this.player.x && step.y === this.player.y) : -1;
     if (!steps || index === -1 || index >= steps.length - 1) {
-      steps = this.findPath(tx, ty);
+      steps = this.findPath(tx, ty, ignoreEnemies);
       this.pathCache = { key, steps };
       index = steps.findIndex(step => step.x === this.player.x && step.y === this.player.y);
       if (index === -1 || index >= steps.length - 1) return false;
@@ -653,9 +656,12 @@ export class Game {
     return true;
   }
 
-  findPath(tx, ty) {
+  findPath(tx, ty, ignoreEnemies = false) {
     const world = this.world;
-    if (!world.isWalkable(tx, ty, this.player)) return [];
+    const walkable = ignoreEnemies
+      ? (x, y) => world.isWalkableIgnoringEnemies(x, y)
+      : (x, y) => world.isWalkable(x, y, this.player);
+    if (!walkable(tx, ty)) return [];
     const startX = this.player.x;
     const startY = this.player.y;
     if (startX === tx && startY === ty) return [];
@@ -671,7 +677,7 @@ export class Game {
         const nx = x + dx;
         const ny = y + dy;
         const key = `${nx},${ny}`;
-        if (prev.has(key) || !world.isWalkable(nx, ny, this.player)) continue;
+        if (prev.has(key) || !walkable(nx, ny)) continue;
         if (!targetPortal && world.getPortalAt(nx, ny)) continue;
         prev.set(key, [x, y]);
         queue.push([nx, ny]);
@@ -692,6 +698,8 @@ export class Game {
     if (this.world.map.safe) return false;
     const portal = this.world.portals.find(item => MAPS[item.to]?.safe) || this.world.portals[0];
     if (portal && this.autoPathStep(portal.x, portal.y)) return true;
+    // 退路被怪物堵住时，按忽略怪物的路径靠近，先清掉挡路的敌人
+    if (portal && this.autoPathStep(portal.x, portal.y, true)) return true;
     const enemy = this.findNearestEnemy(8);
     if (enemy) {
       this.autoStepAway(enemy);
@@ -723,9 +731,11 @@ export class Game {
       this.setAutoStatus('回城换装');
       return this.autoRetreat();
     }
+    if (this.autoRestockCooldown > 0) return false;
     if (ratio < 0.65 || this.findNearestEnemy(4) || (!this.autoNeedsEquipment() && !this.autoNeedsTool())) return false;
     if (this.world.currentMapId === 'dungeon') return false;
     this.autoRestocking = true;
+    this.autoRestockCooldown = 120;
     this.setAutoStatus('回城换装');
     return this.autoRetreat();
   }
@@ -768,17 +778,36 @@ export class Game {
       if (moving) this.setAutoStatus('任务');
       return moving;
     }
-    if (!this.autoNeedsSupplies() && !this.autoNeedsTool() && !this.autoNeedsEquipment() && !this.autoJunkItems().length) return false;
-    const merchant = this.world.npcs.find(npc => npc.shop);
-    if (!merchant) return false;
-    if (distCheb(this.player, merchant) <= 1) {
-      const acted = this.autoBuySupplies() || this.autoBuyTool() || this.autoBuyEquipment() || this.autoSellJunk();
-      if (acted) this.setAutoStatus('补给');
-      return acted;
+    const needsShop = this.autoNeedsSupplies() || this.autoNeedsTool() || this.autoNeedsFishingRod()
+      || this.autoNeedsEquipment() || this.autoJunkItems().length;
+    if (needsShop) {
+      const merchant = this.world.npcs.find(npc => npc.shop);
+      if (merchant) {
+        if (distCheb(this.player, merchant) <= 1) {
+          const acted = this.autoBuySupplies() || this.autoBuyFishingRod() || this.autoBuyTool()
+            || this.autoBuyEquipment() || this.autoSellJunk();
+          if (acted) this.setAutoStatus('补给');
+          return acted;
+        }
+        const moving = this.autoApproach(merchant.x, merchant.y);
+        if (moving) this.setAutoStatus('补给');
+        return moving;
+      }
     }
-    const moving = this.autoApproach(merchant.x, merchant.y);
-    if (moving) this.setAutoStatus('补给');
-    return moving;
+    if (this.autoGatherNeeds().has('fish')
+      && (this.tryAutoGather() || this.autoSeekGather())) {
+      this.setAutoStatus('钓鱼');
+      return true;
+    }
+    if (this.autoShouldVisitBeach()) {
+      const portal = this.world.portals.find(item => item.to === 'beach');
+      if (portal) {
+        const moving = this.autoPathStep(portal.x, portal.y);
+        if (moving) this.setAutoStatus('去海滩');
+        return moving;
+      }
+    }
+    return false;
   }
 
   autoQuestTarget() {
@@ -816,26 +845,34 @@ export class Game {
     return false;
   }
 
+  autoSupplyTargets() {
+    const bossPrep = this.player.level >= 18
+      && (this.quests.states.q_dragon?.status === 'active' || this.world.currentMapId === 'dungeon');
+    return { hp: bossPrep ? 8 : 3, mp: bossPrep ? 3 : 1 };
+  }
+
   autoNeedsSupplies() {
     const p = this.player;
+    const target = this.autoSupplyTargets();
     const hpCount = this.healOptions().reduce((sum, id) => sum + p.countItem(id), 0);
     const mpCount = this.manaOptions().reduce((sum, id) => sum + p.countItem(id), 0);
-    const needHp = hpCount < 3 && p.gold >= ITEMS.hp_potion.price;
-    const needMp = p.level >= 5 && mpCount < 1 && p.gold >= ITEMS.mp_potion.price;
+    const needHp = hpCount < target.hp && p.gold >= ITEMS.hp_potion.price;
+    const needMp = p.level >= 5 && mpCount < target.mp && p.gold >= ITEMS.mp_potion.price;
     return needHp || needMp;
   }
 
   autoBuySupplies() {
     if (this.autoShopCooldown > 0) return true;
     const p = this.player;
+    const target = this.autoSupplyTargets();
     const hpCount = this.healOptions().reduce((sum, id) => sum + p.countItem(id), 0);
     const mpCount = this.manaOptions().reduce((sum, id) => sum + p.countItem(id), 0);
-    if (hpCount < 3 && p.gold >= ITEMS.hp_potion.price) {
+    if (hpCount < target.hp && p.gold >= ITEMS.hp_potion.price) {
       this.buyItem('hp_potion');
       this.autoShopCooldown = 0.6;
       return true;
     }
-    if (p.level >= 5 && mpCount < 1 && p.gold >= ITEMS.mp_potion.price) {
+    if (p.level >= 5 && mpCount < target.mp && p.gold >= ITEMS.mp_potion.price) {
       this.buyItem('mp_potion');
       this.autoShopCooldown = 0.6;
       return true;
@@ -894,14 +931,37 @@ export class Game {
       if (GATHER_TOOLS[itemId]) tools.add(GATHER_TOOLS[itemId]);
     }
     for (const tool of tools) {
-      const owned = ITEMS[p.equipment.weapon]?.tool === tool
-        || Object.keys(p.inventory).some(id => ITEMS[id]?.tool === tool && p.countItem(id) > 0);
-      if (owned) continue;
+      if (this.ownsTool(tool)) continue;
       const shopId = SHOP_ITEMS.find(id => ITEMS[id]?.tool === tool);
       if (!shopId || p.gold < ITEMS[shopId].price) continue;
       return shopId;
     }
     return null;
+  }
+
+  ownsTool(tool) {
+    const p = this.player;
+    if (ITEMS[p.equipment.weapon]?.tool === tool) return true;
+    return Object.keys(p.inventory).some(id => ITEMS[id]?.tool === tool && p.countItem(id) > 0);
+  }
+
+  autoNeedsFishingRod() {
+    if (this.quests.states.q_fish?.status === 'turnedIn') return false;
+    if (this.ownsTool('rod')) return false;
+    return this.player.gold >= ITEMS.fishing_rod.price;
+  }
+
+  autoBuyFishingRod() {
+    if (this.autoShopCooldown > 0 || !this.autoNeedsFishingRod()) return false;
+    this.buyItem('fishing_rod');
+    this.autoShopCooldown = 0.6;
+    return true;
+  }
+
+  autoShouldVisitBeach() {
+    if (this.world.currentMapId !== 'town') return false;
+    if (this.quests.states.q_fish?.status === 'turnedIn') return false;
+    return this.ownsTool('rod');
   }
 
   autoNeedsTool() {
@@ -1015,10 +1075,11 @@ export class Game {
   }
 
   tryAutoGather() {
-    if (this.world.map.safe || this.gatherCooldown > 0 || this.player.moving) return false;
+    if (this.gatherCooldown > 0 || this.player.moving) return false;
     for (const pos of this.gatherTargets()) {
       const props = TILE_PROPS[pos.tile];
       if (!props) continue;
+      if (this.world.map.safe && !props.fish) continue;
       if (props.chest) {
         this.faceTarget(pos);
         this.gather(pos);
