@@ -9,6 +9,11 @@ import { fireball, playerAttack, powerStrike, whirlwind } from './combat.js';
 import { choice, distCheb, rand } from './utils.js';
 import { sfx } from './audio.js';
 
+const GATHER_TOOLS = {
+  copper_ore: 'pick', iron_ore: 'pick', gold_ore: 'pick', stone: 'pick',
+  wood: 'axe', fish: 'rod',
+};
+
 const SAVE_KEY = 'pixel-quest-save';
 const SKILL_KEYS = { '1': 'heal', '2': 'power_strike', '3': 'fireball', '4': 'whirlwind', '5': 'shield' };
 const SKILL_COOLDOWNS = { heal: 6, power_strike: 2.5, fireball: 3, whirlwind: 5, shield: 10 };
@@ -349,7 +354,7 @@ export class Game {
     this.autoRestocking = false;
     this.syncAutoUI();
     sfx.menu();
-    this.ui.toast(this.auto ? '自动动作已开启：战斗、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
+    this.ui.toast(this.auto ? '自动动作已开启：战斗、采集、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
     this.save();
   }
 
@@ -415,6 +420,11 @@ export class Game {
       if (this.attackCooldown <= 0) this.tryAttack();
       return;
     }
+    if (this.tryAutoGather()) {
+      this.setAutoStatus('采集');
+      return;
+    }
+    if (this.autoSeekGather()) return;
     const target = this.pickAutoTarget();
     if (target) {
       const distance = Math.hypot(target.px - p.px, target.py - p.py);
@@ -426,10 +436,6 @@ export class Game {
     }
     if (this.tryAutoLoot()) {
       this.setAutoStatus('拾取');
-      return;
-    }
-    if (this.tryAutoGather()) {
-      this.setAutoStatus('采集');
       return;
     }
     this.setAutoStatus('寻怪');
@@ -696,6 +702,10 @@ export class Game {
 
   autoShouldTurnIn(ratio) {
     if (ratio < 0.5 || this.world.map.safe || this.findNearestEnemy(5)) return false;
+    return this.pendingTurnIn();
+  }
+
+  pendingTurnIn() {
     return Object.values(NPCS).some(npc => {
       if (!npc.quest || npc.map !== 'town') return false;
       const state = this.quests.states[npc.quest];
@@ -708,11 +718,12 @@ export class Game {
   }
 
   autoRestockTrip(ratio) {
+    this.autoRestoreWeapon();
     if (this.autoRestocking) {
       this.setAutoStatus('回城换装');
       return this.autoRetreat();
     }
-    if (ratio < 0.65 || this.findNearestEnemy(4) || !this.autoNeedsEquipment()) return false;
+    if (ratio < 0.65 || this.findNearestEnemy(4) || (!this.autoNeedsEquipment() && !this.autoNeedsTool())) return false;
     if (this.world.currentMapId === 'dungeon') return false;
     this.autoRestocking = true;
     this.setAutoStatus('回城换装');
@@ -720,7 +731,7 @@ export class Game {
   }
 
   autoAdvanceMap(ratio) {
-    if (this.autoRestocking) return false;
+    if (this.autoRestocking || this.pendingTurnIn()) return false;
     if (ratio < 0.7 || this.findAdjacentEnemy()) return false;
     const currentId = this.world.currentMapId;
     const currentMax = this.mapMaxEnemyLevel(currentId);
@@ -745,6 +756,7 @@ export class Game {
   }
 
   autoSafeTasks() {
+    this.autoRestoreWeapon();
     if (this.player.hp / this.player.maxHp < 0.75) return false;
     const questNpc = this.autoQuestTarget();
     if (questNpc) {
@@ -756,13 +768,13 @@ export class Game {
       if (moving) this.setAutoStatus('任务');
       return moving;
     }
-    if (!this.autoNeedsSupplies() && !this.autoNeedsEquipment()) return false;
+    if (!this.autoNeedsSupplies() && !this.autoNeedsTool() && !this.autoNeedsEquipment() && !this.autoJunkItems().length) return false;
     const merchant = this.world.npcs.find(npc => npc.shop);
     if (!merchant) return false;
     if (distCheb(this.player, merchant) <= 1) {
-      const bought = this.autoBuySupplies() || this.autoBuyEquipment();
-      if (bought) this.setAutoStatus('补给');
-      return bought;
+      const acted = this.autoBuySupplies() || this.autoBuyTool() || this.autoBuyEquipment() || this.autoSellJunk();
+      if (acted) this.setAutoStatus('补给');
+      return acted;
     }
     const moving = this.autoApproach(merchant.x, merchant.y);
     if (moving) this.setAutoStatus('补给');
@@ -864,6 +876,68 @@ export class Game {
     return true;
   }
 
+  autoGatherNeeds() {
+    const needs = new Set();
+    for (const [id, quest] of Object.entries(QUESTS)) {
+      if (quest.type !== 'gather') continue;
+      const state = this.quests.states[id];
+      if (!state || state.status !== 'active' || this.quests.isComplete(id)) continue;
+      needs.add(quest.target);
+    }
+    return needs;
+  }
+
+  autoNeededToolItem() {
+    const p = this.player;
+    const tools = new Set();
+    for (const itemId of this.autoGatherNeeds()) {
+      if (GATHER_TOOLS[itemId]) tools.add(GATHER_TOOLS[itemId]);
+    }
+    for (const tool of tools) {
+      const owned = ITEMS[p.equipment.weapon]?.tool === tool
+        || Object.keys(p.inventory).some(id => ITEMS[id]?.tool === tool && p.countItem(id) > 0);
+      if (owned) continue;
+      const shopId = SHOP_ITEMS.find(id => ITEMS[id]?.tool === tool);
+      if (!shopId || p.gold < ITEMS[shopId].price) continue;
+      return shopId;
+    }
+    return null;
+  }
+
+  autoNeedsTool() {
+    return !!this.autoNeededToolItem();
+  }
+
+  autoBuyTool() {
+    if (this.autoShopCooldown > 0) return false;
+    const id = this.autoNeededToolItem();
+    if (!id) return false;
+    const goldBefore = this.player.gold;
+    this.buyItem(id);
+    if (this.player.gold === goldBefore) return false;
+    this.autoShopCooldown = 0.6;
+    return true;
+  }
+
+  autoJunkItems() {
+    const p = this.player;
+    return Object.keys(p.inventory).filter(id => {
+      const item = ITEMS[id];
+      if (!item?.slot || item.tool || p.countItem(id) <= 0) return false;
+      const current = p.equipment[item.slot];
+      return !current || this.itemScore(id) <= this.itemScore(current);
+    });
+  }
+
+  autoSellJunk() {
+    if (this.autoShopCooldown > 0) return false;
+    const [id] = this.autoJunkItems();
+    if (!id) return false;
+    this.sellItem(id);
+    this.autoShopCooldown = 0.6;
+    return true;
+  }
+
   autoLeaveSafeZone() {
     if (this.player.moving) return;
     const ratio = this.player.hp / this.player.maxHp;
@@ -957,6 +1031,61 @@ export class Game {
       return true;
     }
     return false;
+  }
+
+  autoSeekGather() {
+    if (this.threatCount(2) > 0) return false;
+    const node = this.pickGatherNode();
+    if (!node) return false;
+    this.setAutoStatus('采集');
+    const p = this.player;
+    if (p.x === node.standX && p.y === node.standY) return this.gatherCooldown > 0;
+    return this.autoPathStep(node.standX, node.standY);
+  }
+
+  gatherTileMatches(tile, itemId) {
+    const props = TILE_PROPS[tile];
+    if (!props) return false;
+    if (itemId === 'wood') return !!props.chop;
+    if (itemId === 'fish') return !!props.fish;
+    const mine = itemId.endsWith('_ore') ? itemId.slice(0, -4) : itemId;
+    return props.mine === mine;
+  }
+
+  pickGatherNode() {
+    const needList = [...this.autoGatherNeeds()];
+    if (!needList.length) return null;
+    const p = this.player;
+    const dist = new Map([[`${p.x},${p.y}`, 0]]);
+    const queue = [[p.x, p.y]];
+    for (let head = 0; head < queue.length; head++) {
+      const [x, y] = queue[head];
+      const d = dist.get(`${x},${y}`);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = `${nx},${ny}`;
+        if (dist.has(key) || !TILE_PROPS[this.world.getTile(nx, ny)]?.walk) continue;
+        if (this.world.getPortalAt(nx, ny)) continue;
+        dist.set(key, d + 1);
+        queue.push([nx, ny]);
+      }
+    }
+    let best = null;
+    for (let y = 0; y < this.world.height; y++) {
+      for (let x = 0; x < this.world.width; x++) {
+        const tile = this.world.getTile(x, y);
+        if (!needList.some(itemId => this.gatherTileMatches(tile, itemId))) continue;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const standX = x + dx;
+          const standY = y + dy;
+          const d = dist.get(`${standX},${standY}`);
+          if (d === undefined) continue;
+          if (!best || d < best.distance) best = { x, y, standX, standY, distance: d };
+        }
+      }
+    }
+    return best;
   }
 
   autoUseTool(tool) {
@@ -1256,6 +1385,7 @@ export class Game {
     }
     sfx.gather();
     this.renderer.shake(2, 0.1);
+    if (this.auto) this.autoRestoreWeapon();
     this.save();
   }
 
