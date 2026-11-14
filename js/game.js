@@ -60,6 +60,7 @@ export class Game {
     this.clickGoalKey = '';
     this.clickRepathCooldown = 0;
     this.clickAttackMisses = 0;
+    this.hoverTile = null;
     this.dt = 0;
     this.dialogue = null;
     this.syncPlayerToSpawn();
@@ -95,6 +96,7 @@ export class Game {
     this.fade = 0.4;
     this.renderer.snapCamera();
     this.input.reset();
+    this.clearHover();
     this.auto = false;
     this.pathCache = null;
     this.cancelClickMove();
@@ -138,6 +140,7 @@ export class Game {
       this.fade = 0.4;
       this.renderer.snapCamera();
       this.input.reset();
+      this.clearHover();
       this.auto = !!save.auto;
       this.pathCache = null;
       this.cancelClickMove();
@@ -200,6 +203,7 @@ export class Game {
     });
     this.updateEffects(dt);
     this.handleInput();
+    if (this.hoverTile && (this.ui.currentMenu || this.dialogue || this.player.dead)) this.clearHover();
 
     if (this.player.dead) {
       this.deathTimer -= dt;
@@ -346,13 +350,9 @@ export class Game {
   clickToMove(clientX, clientY) {
     if (!this.started || this.player.dead) return false;
     if (this.ui.currentMenu || this.dialogue) return false;
-    const canvas = this.renderer.canvas;
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return false;
-    const sx = (clientX - rect.left) * (canvas.width / rect.width);
-    const sy = (clientY - rect.top) * (canvas.height / rect.height);
-    const tx = Math.floor(sx / this.renderer.tileSize + this.renderer.cameraX);
-    const ty = Math.floor(sy / this.renderer.tileSize + this.renderer.cameraY);
+    const tile = this.renderer.tileAtClient(clientX, clientY);
+    if (!tile) return false;
+    const { x: tx, y: ty } = tile;
     if (tx < 0 || ty < 0 || tx >= this.world.width || ty >= this.world.height) return false;
     const enemy = this.world.getEnemyAt(tx, ty);
     const npc = !enemy && this.world.npcs.find(item => item.x === tx && item.y === ty);
@@ -515,10 +515,43 @@ export class Game {
     this.clickAttackMisses = 0;
   }
 
+  hoverAt(clientX, clientY) {
+    if (!this.started || this.player.dead || this.ui.currentMenu || this.dialogue) {
+      this.clearHover();
+      return;
+    }
+    if (document.body.classList.contains('touch-mode')) return;
+    const tile = this.renderer.tileAtClient(clientX, clientY);
+    if (!tile || tile.x < 0 || tile.y < 0 || tile.x >= this.world.width || tile.y >= this.world.height) {
+      this.clearHover();
+      return;
+    }
+    const enemy = this.world.getEnemyAt(tile.x, tile.y);
+    const npc = !enemy && this.world.npcs.find(item => item.x === tile.x && item.y === tile.y);
+    const props = TILE_PROPS[this.world.getTile(tile.x, tile.y)];
+    const harvest = !!props && (props.chop || props.mine || props.fish || props.chest);
+    const kind = enemy ? 'enemy' : npc ? 'npc' : harvest ? 'resource' : null;
+    if (!kind) {
+      this.clearHover();
+      return;
+    }
+    if (!this.hoverTile || this.hoverTile.x !== tile.x || this.hoverTile.y !== tile.y || this.hoverTile.kind !== kind) {
+      this.hoverTile = { x: tile.x, y: tile.y, kind };
+    }
+    const cursor = enemy ? 'crosshair' : 'pointer';
+    if (this.renderer.canvas.style.cursor !== cursor) this.renderer.canvas.style.cursor = cursor;
+  }
+
+  clearHover() {
+    this.hoverTile = null;
+    if (this.renderer.canvas.style.cursor !== 'crosshair') this.renderer.canvas.style.cursor = 'crosshair';
+  }
+
   checkPortal() {
     const portal = this.world.getPortalAt(this.player.x, this.player.y);
     if (!portal || !MAPS[portal.to]) return;
     this.cancelClickMove();
+    this.clearHover();
     this.world.loadMap(portal.to);
     this.player.setTile(portal.toX, portal.toY);
     this.player.mapId = this.world.currentMapId;

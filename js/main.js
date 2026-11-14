@@ -28,6 +28,11 @@ canvas.addEventListener('pointerdown', event => {
   game.clickToMove(event.clientX, event.clientY);
 });
 
+canvas.addEventListener('pointermove', event => {
+  game.hoverAt(event.clientX, event.clientY);
+});
+canvas.addEventListener('pointerleave', () => game.clearHover());
+
 ['pointerdown', 'keydown', 'touchstart'].forEach(type => {
   window.addEventListener(type, unlockAudio, { once: true, passive: true });
 });

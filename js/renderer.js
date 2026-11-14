@@ -69,6 +69,39 @@ export class Renderer {
     return Math.round((tileY - this.cameraY) * this.tileSize);
   }
 
+  tileAtClient(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const sx = (clientX - rect.left) * (this.canvas.width / rect.width);
+    const sy = (clientY - rect.top) * (this.canvas.height / rect.height);
+    return {
+      x: Math.floor(sx / this.tileSize + this.cameraX),
+      y: Math.floor(sy / this.tileSize + this.cameraY),
+    };
+  }
+
+  drawHover(game) {
+    const hover = game.hoverTile;
+    if (!hover) return;
+    const { ctx, tileSize } = this;
+    const x = this.screenX(hover.x);
+    const y = this.screenY(hover.y);
+    const color = hover.kind === 'enemy' ? '#e0556b' : '#f6dea0';
+    const pad = Math.max(2, tileSize * 0.07);
+    const len = Math.max(6, tileSize * 0.26);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, tileSize * 0.055);
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(x + pad, y + pad + len); ctx.lineTo(x + pad, y + pad); ctx.lineTo(x + pad + len, y + pad);
+    ctx.moveTo(x + tileSize - pad - len, y + pad); ctx.lineTo(x + tileSize - pad, y + pad); ctx.lineTo(x + tileSize - pad, y + pad + len);
+    ctx.moveTo(x + pad, y + tileSize - pad - len); ctx.lineTo(x + pad, y + tileSize - pad); ctx.lineTo(x + pad + len, y + tileSize - pad);
+    ctx.moveTo(x + tileSize - pad - len, y + tileSize - pad); ctx.lineTo(x + tileSize - pad, y + tileSize - pad); ctx.lineTo(x + tileSize - pad, y + tileSize - pad - len);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   render(game) {
     const { ctx, canvas, tileSize } = this;
     const dt = game.dt || 0;
@@ -163,6 +196,8 @@ export class Renderer {
         drawPlayer(ctx, entity, x + lx, y + ly, tileSize);
       }
     }
+
+    this.drawHover(game);
 
     for (const effect of game.effects) {
       const progress = 1 - effect.life / effect.duration;
