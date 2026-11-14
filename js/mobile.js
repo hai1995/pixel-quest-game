@@ -111,7 +111,9 @@ export function initMobile(game) {
 
   const updateHUD = () => {
     const p = game.player;
-    document.getElementById('mh-map').textContent = game.world.map.name;
+    document.getElementById('mh-map').textContent = game.auto && game.autoStatus
+      ? `自动·${game.autoStatus}`
+      : game.world.map.name;
     document.getElementById('mh-lv').textContent = `Lv.${p.level}`;
     document.getElementById('mh-gold').textContent = `${p.gold} G`;
     document.getElementById('mh-hp').style.width = `${Math.max(0, p.hp / p.maxHp * 100)}%`;

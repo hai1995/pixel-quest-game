@@ -225,6 +225,18 @@ export class Renderer {
     ctx.fillStyle = '#f5dfa2';
     ctx.textAlign = 'left';
     ctx.fillText(label, 23, 32);
+
+    if (game.auto && game.autoStatus) {
+      const status = `自动 · ${game.autoStatus}`;
+      ctx.font = 'bold 12px monospace';
+      const statusWidth = ctx.measureText(status).width + 18;
+      ctx.fillStyle = 'rgba(9,14,23,.78)';
+      ctx.fillRect(12, 48, statusWidth, 25);
+      ctx.strokeStyle = 'rgba(120,220,160,.5)';
+      ctx.strokeRect(12.5, 48.5, statusWidth - 1, 24);
+      ctx.fillStyle = '#a7edbc';
+      ctx.fillText(status, 21, 65);
+    }
   }
 
   drawOffscreenMarkers(game) {

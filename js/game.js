@@ -32,8 +32,11 @@ export class Game {
     this.hitStop = 0;
     this.fade = 0;
     this.auto = false;
+    this.autoStatus = '';
     this.autoPotionCooldown = 0;
+    this.autoManaCooldown = 0;
     this.autoRepathCooldown = 0;
+    this.autoUnreachable = new Map();
     this.pathCache = null;
     this.dt = 0;
     this.dialogue = null;
@@ -146,6 +149,7 @@ export class Game {
     this.player.attackAnim = Math.max(0, (this.player.attackAnim || 0) - dt * 7);
     this.bumpCooldown = Math.max(0, (this.bumpCooldown || 0) - dt);
     this.autoPotionCooldown = Math.max(0, this.autoPotionCooldown - dt);
+    this.autoManaCooldown = Math.max(0, this.autoManaCooldown - dt);
     this.fade = Math.max(0, this.fade - dt);
     Object.keys(this.player.skillCooldowns).forEach(id => {
       this.player.skillCooldowns[id] = Math.max(0, this.player.skillCooldowns[id] - dt);
@@ -268,6 +272,8 @@ export class Game {
     this.player.setTile(portal.toX, portal.toY);
     this.player.mapId = this.world.currentMapId;
     this.effects = [];
+    this.pathCache = null;
+    this.autoUnreachable.clear();
     this.fade = 0.38;
     this.renderer.snapCamera();
     sfx.portal();
@@ -311,6 +317,9 @@ export class Game {
 
   toggleAuto() {
     this.auto = !this.auto;
+    this.autoStatus = '';
+    this.pathCache = null;
+    this.autoUnreachable.clear();
     this.syncAutoUI();
     sfx.menu();
     this.ui.toast(this.auto ? '自动动作已开启：自动寻路、战斗、拾取与补给' : '自动动作已关闭', this.auto ? 'good' : '');
@@ -318,6 +327,7 @@ export class Game {
   }
 
   syncAutoUI() {
+    if (!this.auto) this.autoStatus = '';
     document.querySelectorAll('[data-auto]').forEach(button => {
       button.classList.toggle('auto-on', this.auto);
       button.setAttribute('aria-pressed', String(this.auto));
@@ -340,17 +350,29 @@ export class Game {
     if (!this.auto || this.player.dead) return;
     this.autoRepathCooldown = Math.max(0, this.autoRepathCooldown - dt);
     this.tryAutoHeal();
-    const ratio = this.player.hp / this.player.maxHp;
-    if (ratio < 0.3 && !this.autoCanHealSoon()) {
-      this.autoRetreat();
-      return;
-    }
+    if (this.player.moving) return;
     if (this.world.map.safe) {
+      this.setAutoStatus('补给');
       this.autoLeaveSafeZone();
       return;
     }
+    const p = this.player;
+    const ratio = p.hp / p.maxHp;
+    if (ratio < 0.3 && !this.autoCanHealSoon()) {
+      this.setAutoStatus('撤退');
+      this.autoRetreat();
+      return;
+    }
+    if (this.tryAutoRecover()) return;
+    if (this.tryAutoKite(ratio)) return;
     const adjacent = this.findAdjacentEnemy();
     if (adjacent) {
+      if (this.enemyDanger(adjacent) && ratio < 0.55 && !this.autoCanHealSoon()) {
+        this.setAutoStatus('撤退');
+        this.autoRetreat();
+        return;
+      }
+      this.setAutoStatus('战斗');
       this.tryAutoCombatSkills(adjacent);
       this.faceTarget(adjacent);
       if (this.attackCooldown <= 0) this.tryAttack();
@@ -358,19 +380,79 @@ export class Game {
     }
     const target = this.pickAutoTarget();
     if (target) {
-      const distance = Math.hypot(target.px - this.player.px, target.py - this.player.py);
-      if (!this.tryAutoRangedSkill(target, distance)) this.autoStepToward(target);
+      const distance = Math.hypot(target.px - p.px, target.py - p.py);
+      const acted = this.tryAutoRangedSkill(target, distance) || this.autoStepToward(target);
+      if (acted) {
+        this.setAutoStatus('追击');
+        return;
+      }
+    }
+    if (this.tryAutoLoot()) {
+      this.setAutoStatus('拾取');
       return;
     }
-    if (this.tryAutoLoot()) return;
-    if (this.tryAutoGather()) return;
+    if (this.tryAutoGather()) {
+      this.setAutoStatus('采集');
+      return;
+    }
+    this.setAutoStatus('游荡');
     this.autoRoam();
+  }
+
+  setAutoStatus(status) {
+    this.autoStatus = status;
+  }
+
+  threatCount(range = 3) {
+    return this.world.enemies.filter(enemy => !enemy.dead && distCheb(enemy, this.player) <= range).length;
+  }
+
+  enemyDanger(enemy) {
+    return enemy.level - this.player.level >= 5;
+  }
+
+  tryAutoRecover() {
+    const p = this.player;
+    if (this.findNearestEnemy(6)) return false;
+    const ratio = p.hp / p.maxHp;
+    if (ratio < 0.75 && this.canUseHealSkill() && this.useActiveSkill('heal')) {
+      this.setAutoStatus('休整');
+      return true;
+    }
+    if (ratio < 0.5 && this.drinkHealPotion()) {
+      this.setAutoStatus('休整');
+      return true;
+    }
+    if (this.tryAutoRestoreMp()) {
+      this.setAutoStatus('休整');
+      return true;
+    }
+    return false;
+  }
+
+  tryAutoKite(ratio) {
+    const p = this.player;
+    if (ratio > 0.5 || !p.hasActiveSkill('fireball')) return false;
+    if (this.canUseHealSkill() || this.healOptions().length) return false;
+    const enemy = this.findNearestEnemy(5);
+    if (!enemy) return false;
+    const distance = Math.hypot(enemy.px - p.px, enemy.py - p.py);
+    if ((p.skillCooldowns.fireball || 0) <= 0 && p.mp >= ACTIVE_SKILLS.fireball.mp) {
+      this.setAutoStatus('风筝');
+      return this.useActiveSkill('fireball');
+    }
+    if (distance <= 3.2) {
+      this.autoStepAway(enemy);
+      return true;
+    }
+    return false;
   }
 
   autoRoam() {
     if (this.player.moving || this.autoRepathCooldown > 0) return;
+    const canFightDanger = this.player.hp / this.player.maxHp > 0.75;
     const enemies = this.world.enemies
-      .filter(enemy => !enemy.dead)
+      .filter(enemy => !enemy.dead && (canFightDanger || !this.enemyDanger(enemy)))
       .sort((a, b) => Math.hypot(a.px - this.player.px, a.py - this.player.py)
         - Math.hypot(b.px - this.player.px, b.py - this.player.py));
     for (const enemy of enemies.slice(0, 3)) {
@@ -393,6 +475,7 @@ export class Game {
   tryAutoCombatSkills(adjacent) {
     const p = this.player;
     const count = this.world.enemies.filter(enemy => !enemy.dead && distCheb(enemy, p) <= 1).length;
+    const bossNear = this.world.enemies.some(enemy => !enemy.dead && enemy.boss && distCheb(enemy, p) <= 3);
     const reserve = p.hasActiveSkill('heal') && (p.skillCooldowns.heal || 0) <= 0 ? ACTIVE_SKILLS.heal.mp : 0;
     const available = p.mp - reserve;
     const pct = p.hp / p.maxHp;
@@ -401,8 +484,8 @@ export class Game {
       p.hasActiveSkill('shield')
       && (p.skillCooldowns.shield || 0) <= 0
       && available >= ACTIVE_SKILLS.shield.mp
-      && pct < 0.65
-      && (count >= 2 || adjacent.boss)
+      && pct < 0.7
+      && (count >= 2 || bossNear)
       && this.useActiveSkill('shield')
     ) return;
 
@@ -433,14 +516,17 @@ export class Game {
   }
 
   pickAutoTarget(range = 7) {
+    const p = this.player;
+    const canFightDanger = p.hp / p.maxHp > 0.75;
     return this.world.enemies
-      .filter(enemy => !enemy.dead && Math.hypot(enemy.px - this.player.px, enemy.py - this.player.py) <= range)
+      .filter(enemy => !enemy.dead && Math.hypot(enemy.px - p.px, enemy.py - p.py) <= range)
+      .filter(enemy => canFightDanger || !this.enemyDanger(enemy))
       .sort((a, b) => {
         const hpA = a.hp / a.maxHp;
         const hpB = b.hp / b.maxHp;
         if (Math.abs(hpA - hpB) > 0.35) return hpA - hpB;
-        return Math.hypot(a.px - this.player.px, a.py - this.player.py)
-          - Math.hypot(b.px - this.player.px, b.py - this.player.py);
+        return Math.hypot(a.px - p.px, a.py - p.py)
+          - Math.hypot(b.px - p.px, b.py - p.py);
       })[0] || null;
   }
 
@@ -533,7 +619,10 @@ export class Game {
 
   tryAutoHeal() {
     const p = this.player;
-    if (this.autoPotionCooldown > 0 || p.hp / p.maxHp >= 0.35) return false;
+    if (this.autoPotionCooldown > 0) return false;
+    const threat = this.threatCount(3);
+    const threshold = threat >= 2 ? 0.62 : threat === 1 ? 0.5 : 0.4;
+    if (p.hp / p.maxHp >= threshold) return false;
     if (this.canUseHealSkill() && this.useActiveSkill('heal')) {
       this.autoPotionCooldown = 1;
       return true;
@@ -552,6 +641,42 @@ export class Game {
     sfx.heal();
     this.ui.log(`自动使用${ITEMS[pick].name}`, 'good');
     this.autoPotionCooldown = 1.2;
+    return true;
+  }
+
+  manaOptions() {
+    return Object.keys(this.player.inventory)
+      .filter(id => ITEMS[id]?.type === 'consumable' && ITEMS[id].mana > 0 && (this.player.inventory[id] || 0) > 0)
+      .sort((a, b) => ITEMS[a].mana - ITEMS[b].mana);
+  }
+
+  tryAutoRestoreMp() {
+    const p = this.player;
+    if (this.autoManaCooldown > 0 || p.mp / p.maxMp >= 0.4 || this.world.map.safe) return false;
+    const options = this.manaOptions();
+    if (!options.length) return false;
+    const deficit = p.maxMp - p.mp;
+    const pick = options.find(id => ITEMS[id].mana >= deficit * 0.8) || options[options.length - 1];
+    if (!p.useItem(pick)) return false;
+    this.ui.log(`自动使用${ITEMS[pick].name}`, 'good');
+    this.autoManaCooldown = 1.2;
+    return true;
+  }
+
+  itemScore(id) {
+    const item = ITEMS[id];
+    if (!item) return 0;
+    return (item.atk || 0) + (item.def || 0) + (item.maxHp || 0) / 10 + (item.maxMp || 0) / 20;
+  }
+
+  autoEquipBetter(id) {
+    const item = ITEMS[id];
+    if (!item?.slot || item.tool) return false;
+    const current = this.player.equipment[item.slot];
+    if (current && this.itemScore(id) <= this.itemScore(current)) return false;
+    if (!this.player.equip(id)) return false;
+    this.setAutoStatus('换装');
+    this.ui.log(`自动装备${item.name}`, 'good');
     return true;
   }
 
@@ -575,6 +700,7 @@ export class Game {
 
   autoStepToward(enemy) {
     if (this.player.moving || this.input.dirX !== 0 || this.input.dirY !== 0) return false;
+    if (this.time < (this.autoUnreachable.get(enemy.id) || 0)) return false;
     const approaches = [[1, 0], [-1, 0], [0, 1], [0, -1]]
       .map(([dx, dy]) => ({ x: enemy.x + dx, y: enemy.y + dy }))
       .filter(pos => this.world.isWalkable(pos.x, pos.y, this.player))
@@ -583,6 +709,7 @@ export class Game {
     for (const pos of approaches) {
       if (this.autoPathStep(pos.x, pos.y)) return true;
     }
+    if (this.autoRepathCooldown > 0) return false;
     const dx = Math.sign(enemy.x - this.player.x);
     const dy = Math.sign(enemy.y - this.player.y);
     if (!dx && !dy) return false;
@@ -591,6 +718,7 @@ export class Game {
     for (const [mx, my] of moves) {
       if ((mx || my) && this.autoMove(mx, my)) return true;
     }
+    this.autoUnreachable.set(enemy.id, this.time + 2);
     return false;
   }
 
@@ -738,6 +866,8 @@ export class Game {
     this.player.mp = this.player.maxMp;
     this.player.invulnTime = 2;
     this.fade = 0.45;
+    this.pathCache = null;
+    this.autoUnreachable.clear();
     this.renderer.snapCamera();
     this.ui.closeMenu();
     this.closeDialogue();
@@ -905,6 +1035,7 @@ export class Game {
       const picked = this.world.pickupItemDrop(drop.uid);
       if (!picked) continue;
       this.player.addItem(picked.id, picked.qty);
+      if (this.auto) this.autoEquipBetter(picked.id);
       sfx.pickup();
       this.addEffect({ type: 'text', x: picked.x, y: picked.y, text: `+${picked.qty} ${ITEMS[picked.id].name}`, color: '#9ef0b0', duration: 0.8 });
       this.ui.toast(`拾取 ${ITEMS[picked.id].name} × ${picked.qty}`, 'good');
