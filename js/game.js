@@ -1,4 +1,4 @@
-import { ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, TILE, TILE_PROPS } from './data.js';
+import { ACTIVE_SKILLS, ITEMS, MAPS, NPCS, QUESTS, RECIPES, TILE, TILE_PROPS } from './data.js';
 import { Input } from './input.js';
 import { Player } from './player.js';
 import { World } from './world.js';
@@ -35,8 +35,10 @@ export class Game {
     this.autoStatus = '';
     this.autoPotionCooldown = 0;
     this.autoManaCooldown = 0;
+    this.autoShopCooldown = 0;
     this.autoRepathCooldown = 0;
     this.autoUnreachable = new Map();
+    this.autoWeaponBeforeTool = null;
     this.pathCache = null;
     this.dt = 0;
     this.dialogue = null;
@@ -150,6 +152,7 @@ export class Game {
     this.bumpCooldown = Math.max(0, (this.bumpCooldown || 0) - dt);
     this.autoPotionCooldown = Math.max(0, this.autoPotionCooldown - dt);
     this.autoManaCooldown = Math.max(0, this.autoManaCooldown - dt);
+    this.autoShopCooldown = Math.max(0, this.autoShopCooldown - dt);
     this.fade = Math.max(0, this.fade - dt);
     Object.keys(this.player.skillCooldowns).forEach(id => {
       this.player.skillCooldowns[id] = Math.max(0, this.player.skillCooldowns[id] - dt);
@@ -317,12 +320,13 @@ export class Game {
 
   toggleAuto() {
     this.auto = !this.auto;
+    if (!this.auto) this.autoRestoreWeapon();
     this.autoStatus = '';
     this.pathCache = null;
     this.autoUnreachable.clear();
     this.syncAutoUI();
     sfx.menu();
-    this.ui.toast(this.auto ? '自动动作已开启：自动寻路、战斗、拾取与补给' : '自动动作已关闭', this.auto ? 'good' : '');
+    this.ui.toast(this.auto ? '自动动作已开启：战斗、拾取、任务与补给' : '自动动作已关闭', this.auto ? 'good' : '');
     this.save();
   }
 
@@ -353,17 +357,23 @@ export class Game {
     if (this.player.moving) return;
     if (this.world.map.safe) {
       this.setAutoStatus('补给');
+      if (this.autoSafeTasks()) return;
       this.autoLeaveSafeZone();
       return;
     }
     const p = this.player;
     const ratio = p.hp / p.maxHp;
-    if (ratio < 0.3 && !this.autoCanHealSoon()) {
+    if ((ratio < 0.3 || (ratio < 0.45 && this.threatCount(2) >= 2)) && !this.autoCanHealSoon()) {
       this.setAutoStatus('撤退');
       this.autoRetreat();
       return;
     }
     if (this.tryAutoRecover()) return;
+    if (this.autoShouldTurnIn(ratio)) {
+      this.setAutoStatus('交任务');
+      this.autoRetreat();
+      return;
+    }
     if (this.tryAutoKite(ratio)) return;
     const adjacent = this.findAdjacentEnemy();
     if (adjacent) {
@@ -372,6 +382,7 @@ export class Game {
         this.autoRetreat();
         return;
       }
+      this.autoRestoreWeapon();
       this.setAutoStatus('战斗');
       this.tryAutoCombatSkills(adjacent);
       this.faceTarget(adjacent);
@@ -604,6 +615,98 @@ export class Game {
     if (enemy) this.autoStepAway(enemy);
   }
 
+  autoShouldTurnIn(ratio) {
+    if (ratio < 0.5 || this.world.map.safe || this.findNearestEnemy(5)) return false;
+    return Object.values(NPCS).some(npc => {
+      if (!npc.quest || npc.map !== 'town') return false;
+      const state = this.quests.states[npc.quest];
+      return state && state.status !== 'turnedIn' && this.quests.isComplete(npc.quest);
+    });
+  }
+
+  autoSafeTasks() {
+    if (this.player.hp / this.player.maxHp < 0.75) return false;
+    const questNpc = this.autoQuestTarget();
+    if (questNpc) {
+      if (distCheb(this.player, questNpc) <= 1) {
+        this.setAutoStatus('任务');
+        return this.autoAdvanceQuest(questNpc);
+      }
+      const moving = this.autoApproach(questNpc.x, questNpc.y);
+      if (moving) this.setAutoStatus('任务');
+      return moving;
+    }
+    if (!this.autoNeedsSupplies()) return false;
+    const merchant = this.world.npcs.find(npc => npc.shop);
+    if (!merchant) return false;
+    if (distCheb(this.player, merchant) <= 1) return this.autoBuySupplies();
+    const moving = this.autoApproach(merchant.x, merchant.y);
+    if (moving) this.setAutoStatus('补给');
+    return moving;
+  }
+
+  autoQuestTarget() {
+    return this.world.npcs.find(npc => {
+      if (!npc.quest) return false;
+      const state = this.quests.states[npc.quest];
+      if (!state) return true;
+      return state.status !== 'turnedIn' && this.quests.isComplete(npc.quest);
+    }) || null;
+  }
+
+  autoAdvanceQuest(npc) {
+    const before = this.quests.states[npc.quest]?.status;
+    this.startDialogue(npc);
+    if (!this.dialogue) return false;
+    this.advanceDialogue();
+    const turnedIn = before !== 'turnedIn' && this.quests.states[npc.quest]?.status === 'turnedIn';
+    if (this.dialogue) this.advanceDialogue();
+    if (turnedIn) {
+      const rewardItems = QUESTS[npc.quest]?.reward?.items || {};
+      Object.keys(rewardItems).forEach(id => this.autoEquipBetter(id));
+    }
+    return true;
+  }
+
+  autoApproach(x, y) {
+    const approaches = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+      .filter(pos => this.world.isWalkable(pos.x, pos.y, this.player))
+      .sort((a, b) => Math.hypot(a.x - this.player.x, a.y - this.player.y)
+        - Math.hypot(b.x - this.player.x, b.y - this.player.y));
+    for (const pos of approaches) {
+      if (this.autoPathStep(pos.x, pos.y)) return true;
+    }
+    return false;
+  }
+
+  autoNeedsSupplies() {
+    const p = this.player;
+    const hpCount = this.healOptions().reduce((sum, id) => sum + p.countItem(id), 0);
+    const mpCount = this.manaOptions().reduce((sum, id) => sum + p.countItem(id), 0);
+    const needHp = hpCount < 3 && p.gold >= ITEMS.hp_potion.price;
+    const needMp = p.level >= 5 && mpCount < 1 && p.gold >= ITEMS.mp_potion.price;
+    return needHp || needMp;
+  }
+
+  autoBuySupplies() {
+    if (this.autoShopCooldown > 0) return true;
+    const p = this.player;
+    const hpCount = this.healOptions().reduce((sum, id) => sum + p.countItem(id), 0);
+    const mpCount = this.manaOptions().reduce((sum, id) => sum + p.countItem(id), 0);
+    if (hpCount < 3 && p.gold >= ITEMS.hp_potion.price) {
+      this.buyItem('hp_potion');
+      this.autoShopCooldown = 0.6;
+      return true;
+    }
+    if (p.level >= 5 && mpCount < 1 && p.gold >= ITEMS.mp_potion.price) {
+      this.buyItem('mp_potion');
+      this.autoShopCooldown = 0.6;
+      return true;
+    }
+    return false;
+  }
+
   autoLeaveSafeZone() {
     if (this.player.moving) return;
     const ratio = this.player.hp / this.player.maxHp;
@@ -682,20 +785,56 @@ export class Game {
 
   tryAutoGather() {
     if (this.world.map.safe || this.gatherCooldown > 0 || this.player.moving) return false;
-    const weapon = ITEMS[this.player.equipment.weapon];
-    const target = this.gatherTargets().find(pos => {
+    for (const pos of this.gatherTargets()) {
       const props = TILE_PROPS[pos.tile];
-      if (!props) return false;
-      if (props.chest) return true;
-      if (props.chop) return weapon?.tool === 'axe';
-      if (props.mine) return weapon?.tool === 'pick';
-      if (props.fish) return weapon?.tool === 'rod';
-      return false;
-    });
-    if (!target) return false;
-    this.faceTarget(target);
-    this.gather(target);
+      if (!props) continue;
+      if (props.chest) {
+        this.faceTarget(pos);
+        this.gather(pos);
+        return true;
+      }
+      const tool = props.chop ? 'axe' : props.mine ? 'pick' : props.fish ? 'rod' : null;
+      if (!tool || !this.autoUseTool(tool)) continue;
+      this.faceTarget(pos);
+      this.gather(pos);
+      return true;
+    }
+    return false;
+  }
+
+  autoUseTool(tool) {
+    const p = this.player;
+    const equipped = ITEMS[p.equipment.weapon];
+    if (equipped?.tool === tool) return true;
+    const candidates = Object.keys(p.inventory)
+      .filter(id => ITEMS[id]?.tool === tool && p.countItem(id) > 0)
+      .sort((a, b) => (ITEMS[b].atk || 0) - (ITEMS[a].atk || 0));
+    if (!candidates.length) return false;
+    if (this.autoWeaponBeforeTool === null) this.autoWeaponBeforeTool = p.equipment.weapon || null;
+    if (!p.equip(candidates[0])) return false;
+    this.setAutoStatus('换装');
+    this.ui.log(`切换工具：${ITEMS[candidates[0]].name}`, 'good');
     return true;
+  }
+
+  autoRestoreWeapon() {
+    const previous = this.autoWeaponBeforeTool;
+    if (!previous) return false;
+    const p = this.player;
+    if (!ITEMS[p.equipment.weapon]?.tool) {
+      this.autoWeaponBeforeTool = null;
+      return false;
+    }
+    this.autoWeaponBeforeTool = null;
+    if (p.countItem(previous) > 0 && p.equip(previous)) {
+      this.ui.log(`换回${ITEMS[previous].name}`, 'good');
+      return true;
+    }
+    const best = Object.keys(p.inventory)
+      .filter(id => ITEMS[id]?.slot === 'weapon' && !ITEMS[id].tool && p.countItem(id) > 0)
+      .sort((a, b) => (ITEMS[b].atk || 0) - (ITEMS[a].atk || 0))[0];
+    if (best && p.equip(best)) this.ui.log(`换回${ITEMS[best].name}`, 'good');
+    return false;
   }
 
   autoStepToward(enemy) {
