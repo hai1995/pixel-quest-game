@@ -325,7 +325,8 @@ export const QUESTS = {
 export const SHOP_ITEMS = [
   'hp_potion', 'mp_potion', 'bread', 'cooked_fish',
   'wood_sword', 'wood_axe', 'wood_pick', 'fishing_rod',
-  'cloth_armor', 'copper_ring',
+  'cloth_armor', 'copper_sword', 'copper_ring', 'leather_armor',
+  'iron_sword', 'iron_armor', 'amulet', 'gold_sword', 'gold_armor', 'gold_ring',
 ];
 
 // 初始装备

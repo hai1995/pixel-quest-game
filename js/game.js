@@ -1,4 +1,4 @@
-import { ACTIVE_SKILLS, ITEMS, MAPS, NPCS, QUESTS, RECIPES, TILE, TILE_PROPS } from './data.js';
+import { ACTIVE_SKILLS, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
 import { Input } from './input.js';
 import { Player } from './player.js';
 import { World } from './world.js';
@@ -39,6 +39,7 @@ export class Game {
     this.autoRepathCooldown = 0;
     this.autoUnreachable = new Map();
     this.autoRoamTarget = null;
+    this.autoRestocking = false;
     this.autoWeaponBeforeTool = null;
     this.pathCache = null;
     this.dt = 0;
@@ -80,6 +81,7 @@ export class Game {
     this.pathCache = null;
     this.autoUnreachable.clear();
     this.autoRoamTarget = null;
+    this.autoRestocking = false;
     this.autoWeaponBeforeTool = null;
     this.autoPotionCooldown = 0;
     this.autoManaCooldown = 0;
@@ -121,6 +123,7 @@ export class Game {
       this.pathCache = null;
       this.autoUnreachable.clear();
       this.autoRoamTarget = null;
+      this.autoRestocking = false;
       this.autoWeaponBeforeTool = null;
       this.autoPotionCooldown = 0;
       this.autoManaCooldown = 0;
@@ -343,9 +346,10 @@ export class Game {
     this.pathCache = null;
     this.autoUnreachable.clear();
     this.autoRoamTarget = null;
+    this.autoRestocking = false;
     this.syncAutoUI();
     sfx.menu();
-    this.ui.toast(this.auto ? '自动动作已开启：战斗、拾取、任务与补给' : '自动动作已关闭', this.auto ? 'good' : '');
+    this.ui.toast(this.auto ? '自动动作已开启：战斗、任务、补给、换装与换图' : '自动动作已关闭', this.auto ? 'good' : '');
     this.save();
   }
 
@@ -375,6 +379,7 @@ export class Game {
     this.tryAutoHeal();
     if (this.player.moving) return;
     if (this.world.map.safe) {
+      this.autoRestocking = false;
       this.setAutoStatus('补给');
       if (this.autoSafeTasks()) return;
       this.autoLeaveSafeZone();
@@ -393,6 +398,8 @@ export class Game {
       this.autoRetreat();
       return;
     }
+    if (this.autoRestockTrip(ratio)) return;
+    if (this.autoAdvanceMap(ratio)) return;
     if (this.tryAutoKite(ratio)) return;
     const adjacent = this.findAdjacentEnemy();
     if (adjacent) {
@@ -631,7 +638,8 @@ export class Game {
       if (index === -1 || index >= steps.length - 1) return false;
     }
     const next = steps[index + 1];
-    if (!this.autoMove(next.x - this.player.x, next.y - this.player.y)) {
+    const isPortal = !!this.world.getPortalAt(tx, ty);
+    if (!this.autoMove(next.x - this.player.x, next.y - this.player.y, isPortal)) {
       this.pathCache = null;
       this.autoRepathCooldown = 0.25;
       return false;
@@ -645,6 +653,7 @@ export class Game {
     const startX = this.player.x;
     const startY = this.player.y;
     if (startX === tx && startY === ty) return [];
+    const targetPortal = world.getPortalAt(tx, ty);
     const startKey = `${startX},${startY}`;
     const queue = [[startX, startY]];
     const prev = new Map([[startKey, null]]);
@@ -657,6 +666,7 @@ export class Game {
         const ny = y + dy;
         const key = `${nx},${ny}`;
         if (prev.has(key) || !world.isWalkable(nx, ny, this.player)) continue;
+        if (!targetPortal && world.getPortalAt(nx, ny)) continue;
         prev.set(key, [x, y]);
         queue.push([nx, ny]);
       }
@@ -672,12 +682,16 @@ export class Game {
   }
 
   autoRetreat() {
-    if (this.player.moving || this.input.dirX !== 0 || this.input.dirY !== 0) return;
-    if (this.world.map.safe) return;
+    if (this.player.moving || this.input.dirX !== 0 || this.input.dirY !== 0) return false;
+    if (this.world.map.safe) return false;
     const portal = this.world.portals.find(item => MAPS[item.to]?.safe) || this.world.portals[0];
-    if (portal && this.autoPathStep(portal.x, portal.y)) return;
+    if (portal && this.autoPathStep(portal.x, portal.y)) return true;
     const enemy = this.findNearestEnemy(8);
-    if (enemy) this.autoStepAway(enemy);
+    if (enemy) {
+      this.autoStepAway(enemy);
+      return true;
+    }
+    return false;
   }
 
   autoShouldTurnIn(ratio) {
@@ -687,6 +701,47 @@ export class Game {
       const state = this.quests.states[npc.quest];
       return state && state.status !== 'turnedIn' && this.quests.isComplete(npc.quest);
     });
+  }
+
+  mapMaxEnemyLevel(mapId) {
+    return (MAPS[mapId]?.enemies || []).reduce((max, type) => Math.max(max, ENEMIES[type]?.lvl || 0), 0);
+  }
+
+  autoRestockTrip(ratio) {
+    if (this.autoRestocking) {
+      this.setAutoStatus('回城换装');
+      return this.autoRetreat();
+    }
+    if (ratio < 0.65 || this.findNearestEnemy(4) || !this.autoNeedsEquipment()) return false;
+    if (this.world.currentMapId === 'dungeon') return false;
+    this.autoRestocking = true;
+    this.setAutoStatus('回城换装');
+    return this.autoRetreat();
+  }
+
+  autoAdvanceMap(ratio) {
+    if (this.autoRestocking) return false;
+    if (ratio < 0.7 || this.findAdjacentEnemy()) return false;
+    const currentId = this.world.currentMapId;
+    const currentMax = this.mapMaxEnemyLevel(currentId);
+    if (!currentMax || this.player.level < currentMax + 4) return false;
+    if (this.killQuestBlocksAdvance(currentId)) return false;
+    const portal = this.world.portals.find(item => {
+      const next = MAPS[item.to];
+      if (!next || next.safe) return false;
+      const nextMax = this.mapMaxEnemyLevel(item.to);
+      return nextMax > currentMax && this.player.level >= nextMax - 4;
+    });
+    if (!portal) return false;
+    this.setAutoStatus('前往新地图');
+    return this.autoPathStep(portal.x, portal.y);
+  }
+
+  killQuestBlocksAdvance(mapId) {
+    const types = MAPS[mapId]?.enemies || [];
+    return Object.entries(QUESTS).some(([id, quest]) => quest.type === 'kill'
+      && types.includes(quest.target)
+      && this.quests.states[id]?.status === 'active');
   }
 
   autoSafeTasks() {
@@ -701,10 +756,14 @@ export class Game {
       if (moving) this.setAutoStatus('任务');
       return moving;
     }
-    if (!this.autoNeedsSupplies()) return false;
+    if (!this.autoNeedsSupplies() && !this.autoNeedsEquipment()) return false;
     const merchant = this.world.npcs.find(npc => npc.shop);
     if (!merchant) return false;
-    if (distCheb(this.player, merchant) <= 1) return this.autoBuySupplies();
+    if (distCheb(this.player, merchant) <= 1) {
+      const bought = this.autoBuySupplies() || this.autoBuyEquipment();
+      if (bought) this.setAutoStatus('补给');
+      return bought;
+    }
     const moving = this.autoApproach(merchant.x, merchant.y);
     if (moving) this.setAutoStatus('补给');
     return moving;
@@ -770,6 +829,39 @@ export class Game {
       return true;
     }
     return false;
+  }
+
+  equipmentUpgrades() {
+    const p = this.player;
+    const budget = p.gold - (50 + p.level * 3);
+    if (budget <= 0) return [];
+    const best = new Map();
+    for (const id of SHOP_ITEMS) {
+      const item = ITEMS[id];
+      if (!item?.slot || item.tool || item.price > budget) continue;
+      if (p.countItem(id) > 0) continue;
+      const current = p.equipment[item.slot];
+      if (current && this.itemScore(id) <= this.itemScore(current)) continue;
+      const picked = best.get(item.slot);
+      if (!picked || this.itemScore(id) > this.itemScore(picked)) best.set(item.slot, id);
+    }
+    return [...best.values()].sort((a, b) => ITEMS[a].price - ITEMS[b].price);
+  }
+
+  autoNeedsEquipment() {
+    return this.equipmentUpgrades().length > 0;
+  }
+
+  autoBuyEquipment() {
+    if (this.autoShopCooldown > 0) return false;
+    const [id] = this.equipmentUpgrades();
+    if (!id) return false;
+    const goldBefore = this.player.gold;
+    this.buyItem(id);
+    if (this.player.gold === goldBefore) return false;
+    this.autoEquipBetter(id);
+    this.autoShopCooldown = 0.6;
+    return true;
   }
 
   autoLeaveSafeZone() {
@@ -938,10 +1030,11 @@ export class Game {
     }
   }
 
-  autoMove(mx, my) {
+  autoMove(mx, my, allowPortal = false) {
     const nx = this.player.x + mx;
     const ny = this.player.y + my;
     if (!this.world.isWalkable(nx, ny, this.player)) return false;
+    if (!allowPortal && this.world.getPortalAt(nx, ny)) return false;
     this.player.dir = mx !== 0 ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');
     this.player.targetX = nx;
     this.player.targetY = ny;
