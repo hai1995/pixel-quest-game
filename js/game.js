@@ -629,7 +629,7 @@ export class Game {
     const facing = this.world.getEnemyAt(this.player.x + dx, this.player.y + dy);
     if (facing) return facing;
     return this.world.enemies
-      .filter(enemy => !enemy.dead && distCheb(this.player, enemy) <= 1 && Math.hypot(enemy.px - this.player.px, enemy.py - this.player.py) <= 1.6)
+      .filter(enemy => !enemy.dead && distCheb(this.player, enemy) <= 1)
       .sort((a, b) => Math.hypot(a.px - this.player.px, a.py - this.player.py) - Math.hypot(b.px - this.player.px, b.py - this.player.py))[0] || null;
   }
 
