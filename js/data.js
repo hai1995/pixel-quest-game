@@ -40,8 +40,10 @@ export const ITEMS = {
   // 消耗品
   hp_potion:     { name: '生命药水', icon: '🧪', type: 'consumable', heal: 50,  price: 30,  desc: '恢复50点生命' },
   hp_potion_lg:  { name: '大型生命药水', icon: '🧪', type: 'consumable', heal: 150, price: 90,  desc: '恢复150点生命' },
+  hp_potion_xl:  { name: '超级生命药水', icon: '⚗️', type: 'consumable', heal: 320, price: 210, desc: '恢复320点生命' },
   mp_potion:     { name: '法力药水', icon: '💧', type: 'consumable', mana: 30,  price: 25,  desc: '恢复30点法力' },
   mp_potion_lg:  { name: '大型法力药水', icon: '💧', type: 'consumable', mana: 100, price: 75, desc: '恢复100点法力' },
+  mp_potion_xl:  { name: '超级法力药水', icon: '🫙', type: 'consumable', mana: 200, price: 170, desc: '恢复200点法力' },
   bread:         { name: '面包', icon: '🍞', type: 'consumable', heal: 20,  price: 8,   desc: '恢复20点生命' },
   cooked_fish:   { name: '烤鱼', icon: '🐟', type: 'consumable', heal: 40,  price: 20,  desc: '恢复40点生命' },
 
@@ -89,6 +91,8 @@ export const ITEMS = {
   copper_ring:   { name: '铜戒指', icon: '💍', type: 'accessory', atk: 2, def: 1, price: 100, desc: '简单的铜戒指', slot: 'accessory' },
   gold_ring:     { name: '金戒指', icon: '💍', type: 'accessory', atk: 5, def: 3, price: 400, desc: '精致的金戒指', slot: 'accessory' },
   amulet:        { name: '护身符', icon: '📿', type: 'accessory', maxHp: 30, maxMp: 10, price: 300, desc: '增加生命上限', slot: 'accessory' },
+  pearl_ring:    { name: '珍珠戒指', icon: '💍', type: 'accessory', atk: 3, def: 5, maxMp: 20, price: 420, desc: '海之馈赠，泛着柔光', slot: 'accessory' },
+  dragon_pendant:{ name: '龙心吊坠', icon: '🩸', type: 'accessory', atk: 8, def: 8, maxHp: 60, maxMp: 20, price: 3000, desc: '以龙血凝结的护符', slot: 'accessory' },
   bone_charm:    { name: '骨制护符', icon: '🦴', type: 'accessory', def: 5, maxHp: 20, price: 350, desc: '用骷髅骨打磨的护符', slot: 'accessory' },
   ember_heart:   { name: '熔火之心', icon: '💗', type: 'accessory', atk: 6, def: 4, maxHp: 50, price: 1500, desc: '熔岩巨人核心凝成的护符', slot: 'accessory' },
 
@@ -116,6 +120,9 @@ export const RECIPES = [
   { id: 'hp_potion', out: 'hp_potion', outQty: 1, mats: { slime_gel: 2 }, name: '生命药水', skill: 'alchemy', lv: 3 },
   { id: 'mp_potion', out: 'mp_potion', outQty: 1, mats: { bat_wing: 2 }, name: '法力药水', skill: 'alchemy', lv: 5 },
   { id: 'bone_charm', out: 'bone_charm', outQty: 1, mats: { bone: 5, wood: 1 }, name: '骨制护符', skill: 'smithing', lv: 10 },
+  { id: 'hp_potion_xl', out: 'hp_potion_xl', outQty: 1, mats: { slime_gel: 4, cooked_fish: 1, gold_ore: 1 }, name: '超级生命药水', skill: 'alchemy', lv: 25 },
+  { id: 'mp_potion_xl', out: 'mp_potion_xl', outQty: 1, mats: { bat_wing: 5, fish: 2, gold_ore: 1 }, name: '超级法力药水', skill: 'alchemy', lv: 25 },
+  { id: 'dragon_pendant', out: 'dragon_pendant', outQty: 1, mats: { dragon_scale: 1, fire_core: 2, gold_ore: 3 }, name: '龙心吊坠', skill: 'smithing', lv: 34 },
   { id: 'hp_potion_lg', out: 'hp_potion_lg', outQty: 1, mats: { slime_gel: 4, fish: 1 }, name: '大型生命药水', skill: 'alchemy', lv: 15 },
   { id: 'mp_potion_lg', out: 'mp_potion_lg', outQty: 1, mats: { bat_wing: 4, fish: 1 }, name: '大型法力药水', skill: 'alchemy', lv: 15 },
   { id: 'ember_heart', out: 'ember_heart', outQty: 1, mats: { magma_stone: 3, fire_core: 2, gold_ore: 2 }, name: '熔火之心', skill: 'smithing', lv: 32 },
@@ -373,6 +380,8 @@ export const NPCS = {
   alchemist: { name: '药师', icon: '🧪', map: 'town', x: 16, y: 10, quest: 'q_bat', dialog: '蝙蝠的翅膀是调配法力的好材料，能帮我收集一些吗？' },
   prisoner: { name: '受困的法师', icon: '🧙', map: 'dungeon', x: 2, y: 10, quest: 'q_darkmage', dialog: '黑暗法师把我困在这里……击败他们，我才能安全离开。' },
   warden: { name: '熔岩守望者', icon: '🛡️', map: 'volcano', x: 2, y: 8, quest: 'q_golem', dialog: '熔岩巨人守住了深渊的入口，击碎它们，证明你的力量。' },
+  sailor: { name: '老船长', icon: '⚓', map: 'beach', x: 6, y: 15, quest: 'q_deepsea', dialog: '我这张老网再也拉不动了。若你能钓来十条鱼，这枚珍珠戒指就归你。' },
+  magma_smith: { name: '熔岩铁匠', icon: '🔨', map: 'volcano', x: 36, y: 8, quest: 'q_magma', dialog: '想锻造传说中的龙心吊坠？先带八块熔岩结晶来见我。' },
 };
 
 // 任务定义
@@ -389,6 +398,8 @@ export const QUESTS = {
   q_bat: { name: '夜翼之扰', desc: '击败8只蝙蝠', type: 'kill', target: 'bat', qty: 8, reward: { gold: 180, xp: 320, items: { mp_potion_lg: 2 } } },
   q_darkmage: { name: '黑暗法师的阴谋', desc: '击败5只黑暗法师', type: 'kill', target: 'dark_mage', qty: 5, reward: { gold: 500, xp: 1200, items: { amulet: 1 } } },
   q_golem: { name: '熔岩巨人', desc: '击败5只熔岩巨人', type: 'kill', target: 'lava_golem', qty: 5, reward: { gold: 700, xp: 1600, items: { ember_heart: 1 } } },
+  q_deepsea: { name: '深海之赐', desc: '为老船长钓10条鱼', type: 'gather', target: 'fish', qty: 10, reward: { gold: 300, xp: 500, items: { pearl_ring: 1 } } },
+  q_magma: { name: '龙心之锻', desc: '采集8块熔岩结晶', type: 'gather', target: 'magma_stone', qty: 8, reward: { gold: 800, xp: 1400, items: { dragon_pendant: 1 } } },
 };
 
 // 成就定义
@@ -422,6 +433,7 @@ export const SHOP_ITEMS = [
   'wood_sword', 'wood_axe', 'wood_pick', 'fishing_rod',
   'cloth_armor', 'copper_sword', 'copper_ring', 'leather_armor',
   'iron_sword', 'iron_armor', 'amulet', 'gold_sword', 'gold_armor', 'gold_ring',
+  'hp_potion_lg', 'mp_potion_lg', 'hp_potion_xl', 'mp_potion_xl', 'pearl_ring',
   'steel_sword', 'steel_armor', 'flame_sword', 'magma_armor',
 ];
 
