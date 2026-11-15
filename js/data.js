@@ -89,6 +89,7 @@ export const ITEMS = {
   copper_ring:   { name: '铜戒指', icon: '💍', type: 'accessory', atk: 2, def: 1, price: 100, desc: '简单的铜戒指', slot: 'accessory' },
   gold_ring:     { name: '金戒指', icon: '💍', type: 'accessory', atk: 5, def: 3, price: 400, desc: '精致的金戒指', slot: 'accessory' },
   amulet:        { name: '护身符', icon: '📿', type: 'accessory', maxHp: 30, maxMp: 10, price: 300, desc: '增加生命上限', slot: 'accessory' },
+  bone_charm:    { name: '骨制护符', icon: '🦴', type: 'accessory', def: 5, maxHp: 20, price: 350, desc: '用骷髅骨打磨的护符', slot: 'accessory' },
   ember_heart:   { name: '熔火之心', icon: '💗', type: 'accessory', atk: 6, def: 4, maxHp: 50, price: 1500, desc: '熔岩巨人核心凝成的护符', slot: 'accessory' },
 
   // 钥匙
@@ -114,6 +115,10 @@ export const RECIPES = [
   { id: 'copper_ring', out: 'copper_ring', outQty: 1, mats: { copper_ore: 2 }, name: '铜戒指', skill: 'smithing', lv: 12 },
   { id: 'hp_potion', out: 'hp_potion', outQty: 1, mats: { slime_gel: 2 }, name: '生命药水', skill: 'alchemy', lv: 3 },
   { id: 'mp_potion', out: 'mp_potion', outQty: 1, mats: { bat_wing: 2 }, name: '法力药水', skill: 'alchemy', lv: 5 },
+  { id: 'bone_charm', out: 'bone_charm', outQty: 1, mats: { bone: 5, wood: 1 }, name: '骨制护符', skill: 'smithing', lv: 10 },
+  { id: 'hp_potion_lg', out: 'hp_potion_lg', outQty: 1, mats: { slime_gel: 4, fish: 1 }, name: '大型生命药水', skill: 'alchemy', lv: 15 },
+  { id: 'mp_potion_lg', out: 'mp_potion_lg', outQty: 1, mats: { bat_wing: 4, fish: 1 }, name: '大型法力药水', skill: 'alchemy', lv: 15 },
+  { id: 'ember_heart', out: 'ember_heart', outQty: 1, mats: { magma_stone: 3, fire_core: 2, gold_ore: 2 }, name: '熔火之心', skill: 'smithing', lv: 32 },
 ];
 
 // 敌人定义

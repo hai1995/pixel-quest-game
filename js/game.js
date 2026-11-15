@@ -72,6 +72,8 @@ export class Game {
     this.dt = 0;
     this.dialogue = null;
     this.contactNpc = null;
+    this.retaliateTarget = null;
+    this.retaliateTime = 0;
     this.stats = defaultStats();
     this.achievements = [];
     this.achievementTimer = 0;
@@ -126,6 +128,8 @@ export class Game {
     this.autoManaCooldown = 0;
     this.autoShopCooldown = 0;
     this.deathTimer = 0;
+    this.retaliateTarget = null;
+    this.retaliateTime = 0;
     this.syncAutoUI();
     this.ui.closeMenu();
     this.ui.hideDialogue();
@@ -177,6 +181,8 @@ export class Game {
       this.autoManaCooldown = 0;
       this.autoShopCooldown = 0;
       this.deathTimer = 0;
+      this.retaliateTarget = null;
+      this.retaliateTime = 0;
       this.syncAutoUI();
       this.ui.closeMenu();
       this.ui.hideDialogue();
@@ -216,6 +222,7 @@ export class Game {
     this.gatherCooldown = Math.max(0, this.gatherCooldown - dt);
     this.player.hurtFlash = Math.max(0, this.player.hurtFlash - dt);
     this.player.invulnTime = Math.max(0, this.player.invulnTime - dt);
+    this.retaliateTime = Math.max(0, this.retaliateTime - dt);
     this.player.shieldTime = Math.max(0, this.player.shieldTime - dt);
     this.player.attackAnim = Math.max(0, (this.player.attackAnim || 0) - dt * 7);
     this.bumpCooldown = Math.max(0, (this.bumpCooldown || 0) - dt);
@@ -235,6 +242,7 @@ export class Game {
     });
     this.updateEffects(dt);
     this.handleInput();
+    if (!this.auto) this.tryManualRetaliate();
     if (this.hoverTile && (this.ui.currentMenu || this.dialogue || this.player.dead)) this.clearHover();
 
     if (this.player.dead) {
@@ -698,6 +706,8 @@ export class Game {
     this.autoWatchKey = '';
     this.autoWatchGold = -1;
     this.autoDialogueTime = 0;
+    this.retaliateTarget = null;
+    this.retaliateTime = 0;
   }
 
   syncAutoUI() {
@@ -746,6 +756,7 @@ export class Game {
       if (this.autoRetreat()) return;
     }
     if (this.tryAutoRecover()) return;
+    if (this.tryAutoRetaliate(ratio)) return;
     if (this.autoMode === 'all' && this.autoShouldTurnIn(ratio)) {
       this.setAutoStatus('交任务');
       if (this.autoRetreat()) return;
@@ -819,6 +830,52 @@ export class Game {
     }
     if (this.tryAutoRestoreMp()) {
       this.setAutoStatus('休整');
+      return true;
+    }
+    return false;
+  }
+
+  tryManualRetaliate() {
+    const target = this.retaliateTarget;
+    if (!target || target.dead || !this.world.enemies.includes(target)) {
+      this.retaliateTarget = null;
+      return false;
+    }
+    if (this.retaliateTime <= 0 || this.player.dead || this.player.moving
+      || this.ui.currentMenu || this.dialogue || this.world.map.safe) {
+      if (this.retaliateTime <= 0) this.retaliateTarget = null;
+      return false;
+    }
+    if (distCheb(this.player, target) > 1) return false;
+    this.faceTarget(target);
+    if (this.attackCooldown <= 0) this.tryAttack();
+    return true;
+  }
+
+  tryAutoRetaliate(ratio) {
+    const target = this.retaliateTarget;
+    if (!target || target.dead || this.retaliateTime <= 0 || !this.world.enemies.includes(target)) {
+      this.retaliateTarget = null;
+      return false;
+    }
+    if (this.world.map.safe) return false;
+    // 血量过低或越级过多时，生存优先，不强行还击
+    if ((ratio < 0.3 || (this.enemyDanger(target) && ratio < 0.5)) && !this.autoCanHealSoon()) return false;
+    const distance = Math.hypot(target.px - this.player.px, target.py - this.player.py);
+    if (this.tryAutoRangedSkill(target, distance)) {
+      this.setAutoStatus('反击');
+      return true;
+    }
+    if (distCheb(this.player, target) <= 1) {
+      this.autoRestoreWeapon();
+      this.setAutoStatus('反击');
+      this.tryAutoCombatSkills(target);
+      this.faceTarget(target);
+      if (this.attackCooldown <= 0) this.tryAttack();
+      return true;
+    }
+    if (this.autoStepToward(target)) {
+      this.setAutoStatus('反击');
       return true;
     }
     return false;
@@ -1817,6 +1874,8 @@ export class Game {
     this.addEffect({ type: 'text', x: this.player.px, y: this.player.py, text: `-${actual}`, color: '#ff6878', duration: 0.75 });
     this.ui.log(`${enemy.name}对你造成 ${actual} 点伤害`, 'bad');
     this.player.gainSkillXp('defense', 2);
+    this.retaliateTarget = enemy;
+    this.retaliateTime = 6;
     sfx.hurt();
     this.renderer.shake(7, 0.22);
     this.hitStop = 0.06;
