@@ -3,6 +3,12 @@ let ctx = null;
 let master = null;
 let noiseBuffer = null;
 let unlocked = false;
+let muted = false;
+
+export function setMuted(value) {
+  muted = !!value;
+  if (master) master.gain.value = muted ? 0 : 0.2;
+}
 
 function ensureContext() {
   if (typeof window === 'undefined') return null;
@@ -11,7 +17,7 @@ function ensureContext() {
     if (!AudioCtor) return null;
     ctx = new AudioCtor();
     master = ctx.createGain();
-    master.gain.value = 0.2;
+    master.gain.value = muted ? 0 : 0.2;
     master.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -41,6 +47,7 @@ function getNoise(ac) {
 }
 
 function tone({ freq = 440, to = freq, dur = 0.1, type = 'square', vol = 0.35, delay = 0 }) {
+  if (muted) return;
   const ac = ensureContext();
   if (!ac) return;
   const start = ac.currentTime + delay;
@@ -58,6 +65,7 @@ function tone({ freq = 440, to = freq, dur = 0.1, type = 'square', vol = 0.35, d
 }
 
 function noise({ dur = 0.08, vol = 0.25, delay = 0, freq = 900 }) {
+  if (muted) return;
   const ac = ensureContext();
   if (!ac) return;
   const start = ac.currentTime + delay;

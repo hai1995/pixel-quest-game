@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, SHOP_ITEMS, SKILL_DEFS } from './data.js';
+import { ACHIEVEMENTS, ACTIVE_SKILLS, ITEMS, MAPS, QUESTS, RECIPES, SETTINGS, SHOP_ITEMS, SKILL_DEFS } from './data.js';
 import { skillXpForLevel } from './utils.js';
 import { sfx } from './audio.js';
 
@@ -42,6 +42,7 @@ export class UI {
       else if (action === 'craft') this.game.craft(id);
       else if (action === 'buy') this.game.buyItem(id);
       else if (action === 'sell') this.game.sellItem(id);
+      else if (action === 'setting') this.game.toggleSetting(id);
     });
   }
 
@@ -115,6 +116,7 @@ export class UI {
       case 'craft': this.renderCraft(); break;
       case 'shop': this.renderShop(); break;
       case 'achievements': this.renderAchievements(); break;
+      case 'settings': this.renderSettings(); break;
       default: return;
     }
     this.bindCloseButton();
@@ -243,6 +245,19 @@ export class UI {
       <div class="stat-grid achievement-stats">${stats}</div>
       <h3 class="section-title">成就勋章</h3>
       <div class="achievement-list">${cards}</div>`);
+  }
+
+  renderSettings() {
+    const rows = SETTINGS.map(item => {
+      const on = !!this.game.settings[item.id];
+      return `<div class="setting-row">
+        <div class="setting-info"><strong>${item.name}</strong><span>${item.desc}</span></div>
+        <button class="pixel-btn small ${on ? 'primary' : ''}" data-action="setting" data-id="${item.id}">${on ? '开启' : '关闭'}</button>
+      </div>`;
+    }).join('');
+    this.window.innerHTML = menuShell('设置', `
+      <div class="settings-list">${rows}</div>
+      <p class="settings-note">设置即时生效，并保存在本机浏览器。</p>`);
   }
 
   showDialogue(name, text) {

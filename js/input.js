@@ -6,7 +6,7 @@ const normalizeKey = key => {
 
 const CONTROL_KEYS = new Set([
   'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
-  'space', 'e', 'f', 'i', 'b', 'k', 'c', 'q', 'm', 'h', 'escape',
+  'space', 'e', 'f', 'i', 'b', 'k', 'c', 'q', 'm', 'h', 'o', 'escape',
   '1', '2', '3', '4', '5',
 ]);
 

@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, ACTIVE_SKILLS, AUTO_MODES, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
+import { ACHIEVEMENTS, ACTIVE_SKILLS, AUTO_MODES, ENEMIES, ITEMS, MAPS, NPCS, QUESTS, RECIPES, SETTINGS, SHOP_ITEMS, TILE, TILE_PROPS } from './data.js';
 import { Input } from './input.js';
 import { Player } from './player.js';
 import { World } from './world.js';
@@ -7,7 +7,7 @@ import { QuestSystem } from './quests.js';
 import { UI } from './ui.js';
 import { fireball, playerAttack, powerStrike, whirlwind } from './combat.js';
 import { choice, distCheb, rand } from './utils.js';
-import { sfx } from './audio.js';
+import { setMuted, sfx } from './audio.js';
 
 const GATHER_TOOLS = {
   copper_ore: 'pick', iron_ore: 'pick', gold_ore: 'pick', stone: 'pick',
@@ -15,6 +15,7 @@ const GATHER_TOOLS = {
 };
 
 const SAVE_KEY = 'pixel-quest-save';
+const SETTINGS_KEY = 'pixel-quest-settings';
 const SKILL_KEYS = { '1': 'heal', '2': 'power_strike', '3': 'fireball', '4': 'whirlwind', '5': 'shield' };
 const SKILL_COOLDOWNS = { heal: 6, power_strike: 2.5, fireball: 3, whirlwind: 5, shield: 10 };
 
@@ -27,6 +28,8 @@ export class Game {
   constructor(canvas) {
     this.renderer = new Renderer(canvas);
     this.input = new Input();
+    this.settings = this.loadSettings();
+    this.applySettings();
     this.player = new Player();
     this.world = new World();
     this.quests = new QuestSystem(this.player);
@@ -169,7 +172,7 @@ export class Game {
       this.renderer.snapCamera();
       this.input.reset();
       this.clearHover();
-      this.auto = !!save.auto;
+      this.auto = !!save.auto || !!this.settings.autoStart;
       this.autoMode = AUTO_MODES[save.autoMode] ? save.autoMode : 'all';
       this.pathCache = null;
       this.cancelClickMove();
@@ -187,7 +190,7 @@ export class Game {
       this.ui.closeMenu();
       this.ui.hideDialogue();
       document.getElementById('start-screen').classList.add('hidden');
-      this.ui.toast('存档已读取，欢迎回来！', 'good');
+      this.ui.toast('存档已读取，自动冒险已开始！', 'good');
       this.ui.log(`回到${this.world.map.name}`, 'good');
       return true;
     } catch (error) {
@@ -203,6 +206,47 @@ export class Game {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 2, auto: this.auto, autoMode: this.autoMode, player: this.player.toSave(), quests: this.quests.toSave(), stats: this.stats, achievements: this.achievements, savedAt: Date.now() }));
     } catch (error) {
       console.warn('Unable to save game:', error);
+    }
+  }
+
+  loadSettings() {
+    const defaults = Object.fromEntries(SETTINGS.map(item => [item.id, item.def]));
+    try {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+      if (saved && typeof saved === 'object') {
+        Object.keys(defaults).forEach(id => {
+          if (typeof saved[id] === 'boolean') defaults[id] = saved[id];
+        });
+      }
+    } catch {
+      // 忽略损坏的设置数据，使用默认值
+    }
+    return defaults;
+  }
+
+  saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+    } catch (error) {
+      console.warn('Unable to save settings:', error);
+    }
+  }
+
+  applySettings() {
+    setMuted(!this.settings.sound);
+    this.renderer.shakeEnabled = this.settings.shake;
+  }
+
+  toggleSetting(id) {
+    const def = SETTINGS.find(item => item.id === id);
+    if (!def) return;
+    this.settings[id] = !this.settings[id];
+    this.applySettings();
+    this.saveSettings();
+    sfx.menu();
+    if (this.ui) {
+      this.ui.toast(`${def.name}：${this.settings[id] ? '开启' : '关闭'}`, 'good');
+      this.ui.refreshMenu();
     }
   }
 
@@ -260,9 +304,10 @@ export class Game {
       }
     }
 
-    if (!this.ui.currentMenu && !this.dialogue) {
+    // 菜单打开时世界与自动模式继续运行，只是不接受手动移动/点击指令
+    if (!this.dialogue) {
       this.updateMovement(dt);
-      this.updateClickMove();
+      if (!this.ui.currentMenu) this.updateClickMove();
       this.world.update(dt, this);
       this.pickupDrops();
       this.runAuto(dt);
@@ -275,7 +320,7 @@ export class Game {
     this.saveTimer += dt;
     if (this.saveTimer >= 5) {
       this.saveTimer = 0;
-      this.save();
+      if (this.settings.autoSave) this.save();
     }
     this.updateHud(dt);
   }
@@ -320,7 +365,7 @@ export class Game {
       return;
     }
 
-    const menuKeys = { i: 'inventory', b: 'inventory', k: 'skills', c: 'character', q: 'quests', m: 'map', h: 'achievements' };
+    const menuKeys = { i: 'inventory', b: 'inventory', k: 'skills', c: 'character', q: 'quests', m: 'map', h: 'achievements', o: 'settings' };
     for (const [key, menu] of Object.entries(menuKeys)) {
       if (pressed.has(key)) this.toggleMenu(menu);
     }
@@ -340,8 +385,12 @@ export class Game {
   }
 
   updateMovement(dt) {
-    let dx = this.input.dirX;
-    let dy = this.input.dirY;
+    let dx = 0;
+    let dy = 0;
+    if (!this.ui.currentMenu && !this.dialogue && !this.player.dead) {
+      dx = this.input.dirX;
+      dy = this.input.dirY;
+    }
     if (dx !== 0 && dy !== 0) dy = 0;
 
     if (this.player.moving) {

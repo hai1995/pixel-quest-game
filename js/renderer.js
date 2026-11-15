@@ -14,6 +14,7 @@ export class Renderer {
     this.cameraSnap = true;
     this.shakeTime = 0;
     this.shakePower = 0;
+    this.shakeEnabled = true;
     this.ctx.imageSmoothingEnabled = false;
   }
 
@@ -30,6 +31,7 @@ export class Renderer {
   }
 
   shake(power = 4, duration = 0.16) {
+    if (!this.shakeEnabled) return;
     this.shakePower = Math.max(this.shakePower, power);
     this.shakeTime = Math.max(this.shakeTime, duration);
   }

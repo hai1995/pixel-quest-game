@@ -132,6 +132,12 @@ kbd { padding: 2px 4px; background: #101924; border: 1px solid #344659; border-r
 .achievement-card.done .achievement-icon { filter: none; background: #2a3a28; border-color: #7c9a58; }
 .achievement-card.done .achievement-state { color: #84d496; }
 .achievement-card.done .mini-bar i { background: #78c98a; }
+.settings-list { display: grid; gap: 8px; }
+.setting-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: #1a2938; border: 1px solid #30445a; }
+.setting-info { flex: 1; min-width: 0; }
+.setting-info strong { display: block; color: #e4ebf2; font-size: 12px; }
+.setting-info span { display: block; margin-top: 4px; color: #8fa3b6; font-size: 10px; }
+.settings-note { margin-top: 12px; color: #6f8397; font-size: 10px; text-align: center; }
 
 #dialogue-box { position: absolute; left: 50%; bottom: 22px; z-index: 40; width: min(620px, calc(100% - 40px)); padding: 16px 20px 13px; transform: translateX(-50%); background: rgba(14,24,35,.96); border: 2px solid #a38c52; box-shadow: 5px 6px 0 rgba(0,0,0,.35); cursor: pointer; }
 #dialogue-box strong { color: #efd489; font-size: 13px; }

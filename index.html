@@ -40,6 +40,7 @@
           <button data-menu="quests" aria-label="任务">任</button>
           <button data-menu="achievements" aria-label="成就">成</button>
           <button data-menu="map" aria-label="地图">图</button>
+          <button data-menu="settings" aria-label="设置">设</button>
           <button data-auto aria-label="自动动作" aria-pressed="false">自</button>
           <button id="mobile-fullscreen" aria-label="全屏">全</button>
         </nav>
@@ -61,11 +62,10 @@
           <p class="start-subtitle">穿越森林与洞穴，书写你的屠龙传说</p>
           <div class="start-actions">
             <button id="btn-new" class="pixel-btn primary">开始新冒险</button>
-            <button id="btn-continue" class="pixel-btn secondary">继续游戏</button>
           </div>
-          <div class="start-help desktop-only"><span>点击地图移动/交互</span><span>空格 攻击</span><span>E 交互 · F 采集</span><span>I 背包 · K 技能 · Q 任务 · H 成就</span></div>
+          <div class="start-help desktop-only"><span>点击地图移动/交互</span><span>空格 攻击</span><span>E 交互 · F 采集</span><span>I 背包 · Q 任务 · H 成就 · O 设置</span></div>
           <div class="start-help mobile-only"><span>点击地图移动或交互</span><span>点击怪物攻击 · 走近 NPC 交谈</span></div>
-          <small class="save-note">游戏每 5 秒自动保存</small>
+          <small class="save-note">检测到存档时会自动载入并开始冒险</small>
         </section>
       </div>
     </main>
@@ -86,9 +86,10 @@
         <button data-menu="achievements"><span>🏆</span>成就<kbd>H</kbd></button>
         <button data-menu="map"><span>🗺</span>地图<kbd>M</kbd></button>
         <button data-menu="craft"><span>⚒</span>制作</button>
+        <button data-menu="settings"><span>⚙</span>设置<kbd>O</kbd></button>
         <button data-auto aria-pressed="false"><span>▶</span>自动<kbd>T</kbd></button>
       </nav>
-      <section class="controls-help"><h3>操作指南</h3><p>点击地图移动、怪物攻击、资源采集</p><p><kbd>WASD</kbd> / <kbd>方向键</kbd> 移动</p><p><kbd>空格</kbd> 攻击 · <kbd>E</kbd> 交互</p><p><kbd>F</kbd> 采集 · <kbd>1-5</kbd> 主动技能</p><p><kbd>T</kbd> 开关自动 · 点击“自动”选择行动</p></section>
+      <section class="controls-help"><h3>操作指南</h3><p>点击地图移动、怪物攻击、资源采集</p><p><kbd>WASD</kbd> / <kbd>方向键</kbd> 移动</p><p><kbd>空格</kbd> 攻击 · <kbd>E</kbd> 交互</p><p><kbd>F</kbd> 采集 · <kbd>1-5</kbd> 主动技能</p><p><kbd>T</kbd> 开关自动 · <kbd>O</kbd> 设置</p><p>打开菜单时角色仍会继续行动</p></section>
       <footer>进度自动保存在本机浏览器</footer>
     </aside>
 

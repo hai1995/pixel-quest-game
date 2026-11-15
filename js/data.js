@@ -408,6 +408,14 @@ export const ACHIEVEMENTS = {
   gold_5000: { name: '富甲一方', desc: '累计获得 5000 金币', stat: 'goldEarned', target: 5000, reward: { gold: 500, xp: 500, items: { gold_ore: 3 } } },
 };
 
+// 设置项定义
+export const SETTINGS = [
+  { id: 'autoStart', name: '读档后自动行动', desc: '进入游戏后自动战斗、采集与补给', def: true },
+  { id: 'sound', name: '游戏音效', desc: '播放战斗、采集与界面提示音', def: true },
+  { id: 'shake', name: '屏幕震动', desc: '受击与击杀时的镜头晃动', def: true },
+  { id: 'autoSave', name: '自动保存', desc: '每 5 秒保存一次冒险进度', def: true },
+];
+
 // 商店物品
 export const SHOP_ITEMS = [
   'hp_potion', 'mp_potion', 'bread', 'cooked_fish',

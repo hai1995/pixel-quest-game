@@ -39,13 +39,6 @@ canvas.addEventListener('pointerleave', () => game.clearHover());
 });
 
 document.getElementById('btn-new').addEventListener('click', () => game.newGame());
-const continueButton = document.getElementById('btn-continue');
-try {
-  continueButton.disabled = !localStorage.getItem('pixel-quest-save');
-} catch {
-  continueButton.disabled = true;
-}
-continueButton.addEventListener('click', () => game.continueGame());
 
 const autoMenu = document.getElementById('auto-menu');
 const autoModeList = document.getElementById('auto-mode-list');
@@ -121,4 +114,11 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('beforeunload', () => game.save());
 
 window.game = game;
+let hasSave = false;
+try {
+  hasSave = !!localStorage.getItem('pixel-quest-save');
+} catch {
+  hasSave = false;
+}
+if (hasSave) game.continueGame();
 game.start();
