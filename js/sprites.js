@@ -28,6 +28,11 @@ export function drawTile(ctx, id, x, y, size, tileX = 0, tileY = 0, time = 0) {
     const wave = Math.floor(time * 2 + tileX + tileY) % 3;
     rect(ctx, '#65a8e0', x + (2 + wave * 3) * u, y + 4 * u, 5 * u, u);
     rect(ctx, '#285fa8', x + (9 - wave * 2) * u, y + 11 * u, 5 * u, u);
+  } else if (id === TILE.SNOW) {
+    const shine = Math.floor(time * 2 + tileX * 0.7 + tileY * 1.3) % 4;
+    rect(ctx, '#d3e5f2', x + (2 + seed * 3) * u, y + 4 * u, 3 * u, u);
+    rect(ctx, '#ffffff', x + (9 - seed) * u, y + 9 * u, 2 * u, u);
+    if (shine === 0) rect(ctx, '#f7fbff', x + (5 + seed) * u, y + 12 * u, u, u);
   } else if (id === TILE.LAVA) {
     const wave = Math.floor(time * 2 + tileX * 0.7 + tileY) % 3;
     rect(ctx, '#7a1f12', x + (2 + wave * 3) * u, y + 4 * u, 6 * u, 2 * u);

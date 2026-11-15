@@ -8,6 +8,7 @@ export const TILE = {
   ORE_COPPER: 12, ORE_IRON: 13, ORE_GOLD: 14,
   CHEST: 15, PORTAL: 16, BRIDGE: 17,
   WOOD_PILE: 18, STONE: 19, LAVA: 20,
+  SNOW: 21,
 };
 
 // 瓦片属性：是否可通行、是否可采集、采集类型
@@ -33,6 +34,7 @@ export const TILE_PROPS = {
   [TILE.WOOD_PILE]: { walk: false, color: '#8b5a2b', chop: true },
   [TILE.STONE]:     { walk: false, color: '#888', mine: 'stone' },
   [TILE.LAVA]:      { walk: false, color: '#c0392b' },
+  [TILE.SNOW]:      { walk: true,  color: '#e8f2fa' },
 };
 
 // 物品定义
@@ -62,6 +64,7 @@ export const ITEMS = {
   dragon_scale:  { name: '龙鳞', icon: '🐉', type: 'material', price: 200, desc: '坚硬的鳞片' },
   fire_core:     { name: '火焰核心', icon: '🔥', type: 'material', price: 120, desc: '仍在燃烧的元素核心' },
   magma_stone:   { name: '熔岩结晶', icon: '🪨', type: 'material', price: 70, desc: '凝固的炽热岩石' },
+  frost_crystal: { name: '霜晶', icon: '❄️', type: 'material', price: 150, desc: '雪原深处凝结的寒冰结晶' },
 
   // 武器
   wood_sword:    { name: '木剑', icon: '🗡️', type: 'weapon', atk: 5,  price: 50,  desc: '简陋的木剑', slot: 'weapon' },
@@ -70,6 +73,7 @@ export const ITEMS = {
   steel_sword:   { name: '钢剑', icon: '⚔️', type: 'weapon', atk: 30, price: 700, desc: '精钢锻造的利剑', slot: 'weapon' },
   gold_sword:    { name: '黄金剑', icon: '⚔️', type: 'weapon', atk: 38, price: 1000, desc: '闪耀的黄金剑', slot: 'weapon' },
   flame_sword:   { name: '烈焰剑', icon: '🔥', type: 'weapon', atk: 46, price: 1600, desc: '燃烧着永不熄灭的火焰', slot: 'weapon' },
+  frost_sword:   { name: '寒霜剑', icon: '❄️', type: 'weapon', atk: 58, price: 2400, desc: '剑锋覆着永不融化的寒霜', slot: 'weapon' },
   dragon_sword:  { name: '屠龙剑', icon: '🗡️', type: 'weapon', atk: 70, price: 5000, desc: '传说中的屠龙剑', slot: 'weapon', rare: true },
 
   wood_axe:      { name: '木斧', icon: '🪓', type: 'weapon', atk: 6,  price: 40,  desc: '可砍伐树木', slot: 'weapon', tool: 'axe' },
@@ -85,6 +89,7 @@ export const ITEMS = {
   steel_armor:   { name: '钢甲', icon: '🛡️', type: 'armor', def: 22, price: 800, desc: '精钢打造的护甲', slot: 'armor' },
   gold_armor:    { name: '金甲', icon: '🛡️', type: 'armor', def: 28, price: 1200,desc: '华丽的金甲', slot: 'armor' },
   magma_armor:   { name: '熔岩护甲', icon: '🌋', type: 'armor', def: 36, price: 2000, desc: '由熔岩结晶铸成的护甲', slot: 'armor' },
+  frost_armor:   { name: '霜纹战甲', icon: '🧊', type: 'armor', def: 44, price: 2800, desc: '霜晶与寒铁锻造的重甲', slot: 'armor' },
   dragon_armor:  { name: '龙鳞甲', icon: '🛡️', type: 'armor', def: 50, price: 6000,desc: '传说级护甲', slot: 'armor', rare: true },
 
   // 饰品
@@ -92,6 +97,7 @@ export const ITEMS = {
   gold_ring:     { name: '金戒指', icon: '💍', type: 'accessory', atk: 5, def: 3, price: 400, desc: '精致的金戒指', slot: 'accessory' },
   amulet:        { name: '护身符', icon: '📿', type: 'accessory', maxHp: 30, maxMp: 10, price: 300, desc: '增加生命上限', slot: 'accessory' },
   pearl_ring:    { name: '珍珠戒指', icon: '💍', type: 'accessory', atk: 3, def: 5, maxMp: 20, price: 420, desc: '海之馈赠，泛着柔光', slot: 'accessory' },
+  frost_ring:    { name: '霜语戒指', icon: '💠', type: 'accessory', atk: 10, def: 6, maxMp: 30, price: 1800, desc: '戒面中封存着一缕寒风', slot: 'accessory' },
   dragon_pendant:{ name: '龙心吊坠', icon: '🩸', type: 'accessory', atk: 8, def: 8, maxHp: 60, maxMp: 20, price: 3000, desc: '以龙血凝结的护符', slot: 'accessory' },
   bone_charm:    { name: '骨制护符', icon: '🦴', type: 'accessory', def: 5, maxHp: 20, price: 350, desc: '用骷髅骨打磨的护符', slot: 'accessory' },
   ember_heart:   { name: '熔火之心', icon: '💗', type: 'accessory', atk: 6, def: 4, maxHp: 50, price: 1500, desc: '熔岩巨人核心凝成的护符', slot: 'accessory' },
@@ -123,6 +129,9 @@ export const RECIPES = [
   { id: 'hp_potion_xl', out: 'hp_potion_xl', outQty: 1, mats: { slime_gel: 4, cooked_fish: 1, gold_ore: 1 }, name: '超级生命药水', skill: 'alchemy', lv: 25 },
   { id: 'mp_potion_xl', out: 'mp_potion_xl', outQty: 1, mats: { bat_wing: 5, fish: 2, gold_ore: 1 }, name: '超级法力药水', skill: 'alchemy', lv: 25 },
   { id: 'dragon_pendant', out: 'dragon_pendant', outQty: 1, mats: { dragon_scale: 1, fire_core: 2, gold_ore: 3 }, name: '龙心吊坠', skill: 'smithing', lv: 34 },
+  { id: 'frost_ring', out: 'frost_ring', outQty: 1, mats: { frost_crystal: 3, gold_ore: 2 }, name: '霜语戒指', skill: 'smithing', lv: 34 },
+  { id: 'frost_sword', out: 'frost_sword', outQty: 1, mats: { frost_crystal: 4, iron_ore: 3 }, name: '寒霜剑', skill: 'smithing', lv: 36 },
+  { id: 'frost_armor', out: 'frost_armor', outQty: 1, mats: { frost_crystal: 5, iron_ore: 4, wolf_pelt: 2 }, name: '霜纹战甲', skill: 'smithing', lv: 36 },
   { id: 'hp_potion_lg', out: 'hp_potion_lg', outQty: 1, mats: { slime_gel: 4, fish: 1 }, name: '大型生命药水', skill: 'alchemy', lv: 15 },
   { id: 'mp_potion_lg', out: 'mp_potion_lg', outQty: 1, mats: { bat_wing: 4, fish: 1 }, name: '大型法力药水', skill: 'alchemy', lv: 15 },
   { id: 'ember_heart', out: 'ember_heart', outQty: 1, mats: { magma_stone: 3, fire_core: 2, gold_ore: 2 }, name: '熔火之心', skill: 'smithing', lv: 32 },
@@ -140,6 +149,9 @@ export const ENEMIES = {
   fire_elemental: { name: '火焰元素', icon: '🔥', hp: 260, atk: 44, def: 14, xp: 220, gold: [45, 95], drops: [{ id: 'fire_core', chance: 0.55 }, { id: 'gold_ore', chance: 0.15 }], lvl: 18, color: '#e8622c' },
   lava_golem: { name: '熔岩巨人', icon: '🌋', hp: 420, atk: 55, def: 22, xp: 320, gold: [70, 140], drops: [{ id: 'magma_stone', chance: 0.6 }, { id: 'iron_ore', chance: 0.3 }], lvl: 22, color: '#a33b23' },
   fire_drake: { name: '炎鳞亚龙', icon: '🐲', hp: 550, atk: 62, def: 24, xp: 420, gold: [100, 200], drops: [{ id: 'dragon_scale', chance: 0.22 }, { id: 'fire_core', chance: 0.45 }], lvl: 26, color: '#d4552e' },
+  ice_wolf: { name: '霜牙狼', icon: '🐺', hp: 360, atk: 52, def: 16, xp: 280, gold: [55, 110], drops: [{ id: 'frost_crystal', chance: 0.5 }, { id: 'wolf_pelt', chance: 0.35 }], lvl: 21, color: '#7ec8e3' },
+  frost_mage: { name: '霜语法师', icon: '🧙', hp: 320, atk: 60, def: 12, xp: 340, gold: [65, 130], drops: [{ id: 'frost_crystal', chance: 0.5 }, { id: 'mp_potion_lg', chance: 0.25 }], lvl: 24, color: '#9fd8f5' },
+  ice_golem: { name: '寒冰巨人', icon: '🧊', hp: 900, atk: 74, def: 30, xp: 720, gold: [110, 190], drops: [{ id: 'frost_crystal', chance: 0.85 }, { id: 'gold_ore', chance: 0.3, qty: 1 }], lvl: 28, color: '#bfe6ff' },
   dragon: { name: '巨龙', icon: '🐉', hp: 800, atk: 65, def: 25, xp: 800, gold: [200, 500], drops: [{ id: 'dragon_scale', chance: 1.0 }, { id: 'gold_ore', chance: 1.0, qty: 3 }], lvl: 25, color: '#c0392b', boss: true },
 };
 
@@ -191,6 +203,7 @@ function parseMap(rows) {
       case 'L': return TILE.WOOD_PILE;
       case 'o': return TILE.STONE;
       case 'v': return TILE.LAVA;
+      case 'x': return TILE.SNOW;
       default: return TILE.GRASS;
     }
   }));
@@ -315,7 +328,7 @@ export const MAPS = {
   volcano: {
     name: '熔岩深渊',
     spawn: { x: 1, y: 8 },
-    portals: [{ x: 0, y: 8, to: 'dungeon', toX: 37, toY: 10 }],
+    portals: [{ x: 0, y: 8, to: 'dungeon', toX: 37, toY: 10 }, { x: 39, y: 8, to: 'snow', toX: 38, toY: 8 }],
     enemies: ['fire_elemental', 'lava_golem', 'fire_drake'],
     rows: parseMap([
       'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
@@ -326,13 +339,34 @@ export const MAPS = {
       'WFFFFFFFFFFFFvvvvvvFFvvvvvvFFFvvvvvvFFFW',
       'WFFFFFFFFF2FFvvvvvvFFvvvvvvFF2FFFFFFFFFW',
       'WFFWFFFFFFFFFvvvvvvFFvvvvvvFFFFFFFFFFFFW',
-      'PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
+      'PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFP',
       'WFFFFFFFFFFFFFFFF2FFFFFFFFFFFFFFFFFFFFFW',
       'WFFFvvvvvFFFFFFFFFFFFFFFWFFFFFFFFF3FFFFW',
       'WFFFvvvvvFFFFFFWFFFFFFFFFFFFFFFFFF3FFFFW',
       'WFFFvvvvvFFFFFFFFFFFFFFFFFFFWFFFFFFFWFFW',
       'WFF1FFFFFFFFFFFFFFFF3FFFFFFFWFFFFFFFFFFW',
       'WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFW',
+      'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+    ]),
+  },
+  snow: {
+    name: '霜寒雪原',
+    spawn: { x: 1, y: 8 },
+    portals: [{ x: 39, y: 8, to: 'volcano', toX: 38, toY: 8 }],
+    enemies: ['ice_wolf', 'frost_mage', 'ice_golem'],
+    rows: parseMap([
+      'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+      'WxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxW',
+      'WxxxxxxRRxxxxxCxxxxxxRRxxxxxxxxxxxxxxxxW',
+      'WxxxxxxRRxxxxxxxxxxxxRRxxxxxxxxxxxxxxxxW',
+      'WxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxW',
+      'Wxxx3xxxxxxxxxxxxCxxxxxxxxxxxx3xxxxxxxxW',
+      'WxxxxxxRRxxxxxxxxxxxxRRxxxxxxxxxxxxxxxxW',
+      'WxxxxxxRRxxxxxxxxxxxxRRxxxxxxxxxxxxxxxxW',
+      'WxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxP',
+      'Wxxx3xxxxxxxxxxxxxxxxxxxxxxxx3xxxxxxxxxW',
+      'WxxxxxxRRxxxxxCxxxxxxRRxxxxxxxxxxxxxxxxW',
+      'WxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxW',
       'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
     ]),
   },
@@ -382,6 +416,7 @@ export const NPCS = {
   warden: { name: '熔岩守望者', icon: '🛡️', map: 'volcano', x: 2, y: 8, quest: 'q_golem', dialog: '熔岩巨人守住了深渊的入口，击碎它们，证明你的力量。' },
   sailor: { name: '老船长', icon: '⚓', map: 'beach', x: 6, y: 15, quest: 'q_deepsea', dialog: '我这张老网再也拉不动了。若你能钓来十条鱼，这枚珍珠戒指就归你。' },
   magma_smith: { name: '熔岩铁匠', icon: '🔨', map: 'volcano', x: 36, y: 8, quest: 'q_magma', dialog: '想锻造传说中的龙心吊坠？先带八块熔岩结晶来见我。' },
+  snow_hunter: { name: '雪原猎手', icon: '🏹', map: 'snow', x: 3, y: 2, quest: 'q_snowwolf', dialog: '霜牙狼成群结队地袭击营地。猎杀八只，这枚霜语戒指就归你。' },
 };
 
 // 任务定义
@@ -400,6 +435,7 @@ export const QUESTS = {
   q_golem: { name: '熔岩巨人', desc: '击败5只熔岩巨人', type: 'kill', target: 'lava_golem', qty: 5, reward: { gold: 700, xp: 1600, items: { ember_heart: 1 } } },
   q_deepsea: { name: '深海之赐', desc: '为老船长钓10条鱼', type: 'gather', target: 'fish', qty: 10, reward: { gold: 300, xp: 500, items: { pearl_ring: 1 } } },
   q_magma: { name: '龙心之锻', desc: '采集8块熔岩结晶', type: 'gather', target: 'magma_stone', qty: 8, reward: { gold: 800, xp: 1400, items: { dragon_pendant: 1 } } },
+  q_snowwolf: { name: '霜原狼群', desc: '击败8只霜牙狼', type: 'kill', target: 'ice_wolf', qty: 8, reward: { gold: 900, xp: 1800, items: { frost_ring: 1 } } },
 };
 
 // 成就定义
@@ -415,7 +451,7 @@ export const ACHIEVEMENTS = {
   chest_10: { name: '宝箱猎人', desc: '打开 10 个宝箱', stat: 'chests', target: 10, reward: { gold: 300, xp: 350 } },
   quest_20: { name: '任务达人', desc: '累计完成 20 个任务', stat: 'quests', target: 20, reward: { gold: 500, xp: 800 } },
   level_20: { name: '成长之路', desc: '达到 20 级', stat: 'level', target: 20, reward: { gold: 600, items: { gold_ring: 1 } } },
-  explorer_all: { name: '世界旅人', desc: '探索全部 6 张地图', stat: 'maps', target: 6, reward: { gold: 700, xp: 900 } },
+  explorer_all: { name: '世界旅人', desc: '探索全部 7 张地图', stat: 'maps', target: 7, reward: { gold: 700, xp: 900 } },
   gold_5000: { name: '富甲一方', desc: '累计获得 5000 金币', stat: 'goldEarned', target: 5000, reward: { gold: 500, xp: 500, items: { gold_ore: 3 } } },
 };
 
@@ -434,7 +470,7 @@ export const SHOP_ITEMS = [
   'cloth_armor', 'copper_sword', 'copper_ring', 'leather_armor',
   'iron_sword', 'iron_armor', 'amulet', 'gold_sword', 'gold_armor', 'gold_ring',
   'hp_potion_lg', 'mp_potion_lg', 'hp_potion_xl', 'mp_potion_xl', 'pearl_ring',
-  'steel_sword', 'steel_armor', 'flame_sword', 'magma_armor',
+  'steel_sword', 'steel_armor', 'flame_sword', 'magma_armor', 'frost_sword', 'frost_armor',
 ];
 
 // 初始装备
