@@ -743,14 +743,12 @@ export class Game {
     const ratio = p.hp / p.maxHp;
     if ((ratio < 0.3 || (ratio < 0.45 && this.threatCount(2) >= 2)) && !this.autoCanHealSoon()) {
       this.setAutoStatus('撤退');
-      this.autoRetreat();
-      return;
+      if (this.autoRetreat()) return;
     }
     if (this.tryAutoRecover()) return;
     if (this.autoMode === 'all' && this.autoShouldTurnIn(ratio)) {
       this.setAutoStatus('交任务');
-      this.autoRetreat();
-      return;
+      if (this.autoRetreat()) return;
     }
     if (this.autoRestockTrip(ratio)) return;
     if ((this.autoMode === 'all' || this.autoMode === 'combat') && this.autoAdvanceMap(ratio)) return;
@@ -759,8 +757,7 @@ export class Game {
     if (adjacent) {
       if (this.enemyDanger(adjacent) && ratio < 0.55 && !this.autoCanHealSoon()) {
         this.setAutoStatus('撤退');
-        this.autoRetreat();
-        return;
+        if (this.autoRetreat()) return;
       }
       this.autoRestoreWeapon();
       this.setAutoStatus('战斗');
@@ -1052,10 +1049,7 @@ export class Game {
     // 退路被怪物堵住时，按忽略怪物的路径靠近，先清掉挡路的敌人
     if (portal && this.autoPathStep(portal.x, portal.y, true)) return true;
     const enemy = this.findNearestEnemy(8);
-    if (enemy) {
-      this.autoStepAway(enemy);
-      return true;
-    }
+    if (enemy) return !!this.autoStepAway(enemy);
     return false;
   }
 

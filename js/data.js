@@ -89,6 +89,7 @@ export const ITEMS = {
   copper_ring:   { name: '铜戒指', icon: '💍', type: 'accessory', atk: 2, def: 1, price: 100, desc: '简单的铜戒指', slot: 'accessory' },
   gold_ring:     { name: '金戒指', icon: '💍', type: 'accessory', atk: 5, def: 3, price: 400, desc: '精致的金戒指', slot: 'accessory' },
   amulet:        { name: '护身符', icon: '📿', type: 'accessory', maxHp: 30, maxMp: 10, price: 300, desc: '增加生命上限', slot: 'accessory' },
+  ember_heart:   { name: '熔火之心', icon: '💗', type: 'accessory', atk: 6, def: 4, maxHp: 50, price: 1500, desc: '熔岩巨人核心凝成的护符', slot: 'accessory' },
 
   // 钥匙
   dungeon_key:   { name: '地牢钥匙', icon: '🔑', type: 'key', price: 0, desc: '进入地牢的钥匙' },
@@ -364,6 +365,9 @@ export const NPCS = {
   guard: { name: '卫兵', icon: '💂', map: 'town', x: 33, y: 13, quest: 'q_skeleton', dialog: '洞穴里的骷髅兵越来越多，能帮我消灭6只吗？' },
   cook: { name: '厨师', icon: '👨‍🍳', map: 'town', x: 18, y: 6, quest: 'q_feast', dialog: '我想做一桌海鲜大餐，能帮我钓4条鱼吗？' },
   explorer: { name: '探险家', icon: '🧭', map: 'town', x: 33, y: 4, quest: 'q_volcano', dialog: '龙巢深处还有一道裂缝，通向熔岩深渊……那里的火焰元素守护着锻造神兵的力量。' },
+  alchemist: { name: '药师', icon: '🧪', map: 'town', x: 16, y: 10, quest: 'q_bat', dialog: '蝙蝠的翅膀是调配法力的好材料，能帮我收集一些吗？' },
+  prisoner: { name: '受困的法师', icon: '🧙', map: 'dungeon', x: 2, y: 10, quest: 'q_darkmage', dialog: '黑暗法师把我困在这里……击败他们，我才能安全离开。' },
+  warden: { name: '熔岩守望者', icon: '🛡️', map: 'volcano', x: 2, y: 8, quest: 'q_golem', dialog: '熔岩巨人守住了深渊的入口，击碎它们，证明你的力量。' },
 };
 
 // 任务定义
@@ -377,6 +381,9 @@ export const QUESTS = {
   q_skeleton: { name: '洞穴清剿', desc: '击败6只骷髅兵', type: 'kill', target: 'skeleton', qty: 6, reward: { gold: 300, xp: 550, items: { copper_ring: 1 } } },
   q_feast: { name: '海鲜大餐', desc: '为厨师钓4条鱼', type: 'gather', target: 'fish', qty: 4, reward: { gold: 120, xp: 220, items: { cooked_fish: 3 } } },
   q_volcano: { name: '熔岩的试炼', desc: '击败8只火焰元素', type: 'kill', target: 'fire_elemental', qty: 8, reward: { gold: 600, xp: 1500, items: { flame_sword: 1 } } },
+  q_bat: { name: '夜翼之扰', desc: '击败8只蝙蝠', type: 'kill', target: 'bat', qty: 8, reward: { gold: 180, xp: 320, items: { mp_potion_lg: 2 } } },
+  q_darkmage: { name: '黑暗法师的阴谋', desc: '击败5只黑暗法师', type: 'kill', target: 'dark_mage', qty: 5, reward: { gold: 500, xp: 1200, items: { amulet: 1 } } },
+  q_golem: { name: '熔岩巨人', desc: '击败5只熔岩巨人', type: 'kill', target: 'lava_golem', qty: 5, reward: { gold: 700, xp: 1600, items: { ember_heart: 1 } } },
 };
 
 // 成就定义
