@@ -90,7 +90,6 @@ export class UI {
     sfx.menu();
     this.renderMenu();
     this.overlay.classList.remove('hidden');
-    this.game.input.keys.clear();
   }
 
   closeMenu() {

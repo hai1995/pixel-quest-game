@@ -304,10 +304,10 @@ export class Game {
       }
     }
 
-    // 菜单打开时世界与自动模式继续运行，只是不接受手动移动/点击指令
+    // 菜单打开时世界与自动模式继续运行，移动与点击行动也不会被中断
     if (!this.dialogue) {
       this.updateMovement(dt);
-      if (!this.ui.currentMenu) this.updateClickMove();
+      this.updateClickMove();
       this.world.update(dt, this);
       this.pickupDrops();
       this.runAuto(dt);
@@ -387,7 +387,7 @@ export class Game {
   updateMovement(dt) {
     let dx = 0;
     let dy = 0;
-    if (!this.ui.currentMenu && !this.dialogue && !this.player.dead) {
+    if (!this.dialogue && !this.player.dead) {
       dx = this.input.dirX;
       dy = this.input.dirY;
     }
