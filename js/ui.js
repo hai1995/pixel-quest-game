@@ -235,7 +235,7 @@ export class UI {
       : `${Math.floor(s.playtime / 60)} 分 ${Math.floor(s.playtime % 60)} 秒`;
     const stats = [
       ['击杀敌人', s.kills], ['精英击杀', s.elites], ['首领取胜', s.bosses],
-      ['砍伐次数', s.wood], ['采矿次数', s.ore], ['钓鱼次数', s.fish],
+      ['砍伐次数', s.wood], ['采矿次数', s.ore], ['霜晶采集', s.frost || 0], ['钓鱼次数', s.fish],
       ['开启宝箱', s.chests], ['完成任务', s.quests], ['倒下次数', s.deaths],
       ['累计金币', s.goldEarned], ['探索地图', `${s.maps.length}/${Object.keys(MAPS).length}`], ['冒险时长', time],
     ].map(([label, value]) => `<div>${label}<b>${value}</b></div>`).join('');

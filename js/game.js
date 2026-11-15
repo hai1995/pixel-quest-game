@@ -20,8 +20,8 @@ const SKILL_KEYS = { '1': 'heal', '2': 'power_strike', '3': 'fireball', '4': 'wh
 const SKILL_COOLDOWNS = { heal: 6, power_strike: 2.5, fireball: 3, whirlwind: 5, shield: 10 };
 
 const defaultStats = () => ({
-  kills: 0, elites: 0, bosses: 0, wood: 0, ore: 0, fish: 0,
-  chests: 0, quests: 0, deaths: 0, goldEarned: 0, playtime: 0, maps: [],
+  kills: 0, elites: 0, bosses: 0, wood: 0, ore: 0, fish: 0, frost: 0,
+  chests: 0, quests: 0, deaths: 0, goldEarned: 0, playtime: 0, maps: [], frostBeast: 0,
 });
 
 export class Game {
@@ -1849,6 +1849,7 @@ export class Game {
     this.stats.kills += 1;
     if (enemy.elite) this.stats.elites += 1;
     if (enemy.boss) this.stats.bosses += 1;
+    if (enemy.type === 'frost_beast') this.stats.frostBeast += 1;
     this.stats.goldEarned += loot.gold;
     loot.items.forEach(item => this.world.addItemDrop(item.id, item.qty, enemy.x, enemy.y));
     const levels = this.player.gainXp(enemy.xp);
@@ -1860,7 +1861,7 @@ export class Game {
     this.addEffect({ type: 'text', x: enemy.px, y: enemy.py - 0.4, text: `+${loot.gold}G`, color: '#f2cf6c', duration: 0.9 });
     this.ui.log(`击败${enemy.name}，获得 ${enemy.xp} 经验、${loot.gold} 金币`, 'good');
     if (levels) this.onLevelUp(levels);
-    if (enemy.boss) this.ui.toast('巨龙已被击败！你成为了屠龙勇士！', 'good');
+    if (enemy.boss) this.ui.toast(enemy.type === 'dragon' ? '巨龙已被击败！你成为了屠龙勇士！' : `${enemy.name}已被击败！`, 'good');
     this.checkAchievements();
   }
 
@@ -2010,9 +2011,9 @@ export class Game {
       skillId = 'woodcut';
       xp = 12;
     } else if (props.mine) {
-      itemId = props.mine === 'stone' ? 'stone' : `${props.mine}_ore`;
+      itemId = props.mine === 'stone' ? 'stone' : props.mine === 'frost' ? 'frost_crystal' : `${props.mine}_ore`;
       skillId = 'mining';
-      xp = props.mine === 'gold' ? 35 : props.mine === 'iron' ? 24 : 15;
+      xp = props.mine === 'gold' || props.mine === 'frost' ? 35 : props.mine === 'iron' ? 24 : 15;
     } else if (props.fish) {
       itemId = 'fish';
       skillId = 'fishing';
@@ -2039,6 +2040,7 @@ export class Game {
       this.player.addItem(itemId, 1);
       if (itemId === 'wood') this.stats.wood += 1;
       else if (itemId === 'fish') this.stats.fish += 1;
+      else if (itemId === 'frost_crystal') this.stats.frost += 1;
       else this.stats.ore += 1;
       const levels = this.player.gainSkillXp(skillId, xp);
       this.quests.onGather(itemId, 1);

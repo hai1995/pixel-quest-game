@@ -65,10 +65,10 @@ export function drawTile(ctx, id, x, y, size, tileX = 0, tileY = 0, time = 0) {
     rect(ctx, '#3b2419', x + 2 * u, y, 12 * u, size);
     rect(ctx, '#986035', x + 4 * u, y + u, 8 * u, 15 * u);
     rect(ctx, '#e4bd53', x + 10 * u, y + 8 * u, u, u);
-  } else if ([TILE.ORE_COPPER, TILE.ORE_IRON, TILE.ORE_GOLD].includes(id)) {
+  } else if ([TILE.ORE_COPPER, TILE.ORE_IRON, TILE.ORE_GOLD, TILE.ORE_FROST].includes(id)) {
     rect(ctx, '#454750', x + 2 * u, y + 6 * u, 12 * u, 8 * u);
     rect(ctx, '#747680', x + 4 * u, y + 4 * u, 8 * u, 8 * u);
-    const ore = id === TILE.ORE_COPPER ? '#d68b54' : id === TILE.ORE_IRON ? '#d4d9e4' : '#ffdc4a';
+    const ore = id === TILE.ORE_COPPER ? '#d68b54' : id === TILE.ORE_IRON ? '#d4d9e4' : id === TILE.ORE_FROST ? '#9fe6ff' : '#ffdc4a';
     rect(ctx, ore, x + 5 * u, y + 6 * u, 3 * u, 3 * u);
     rect(ctx, ore, x + 10 * u, y + 9 * u, 2 * u, 3 * u);
   } else if (id === TILE.CHEST) {
